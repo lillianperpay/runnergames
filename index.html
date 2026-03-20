@@ -46,6 +46,16 @@
       animation: pulse 3s ease-in-out infinite;
     }
 
+    .subtitle {
+      max-width: 920px;
+      margin: -1.8rem 0 2.4rem;
+      padding: 0 1.5rem;
+      color: rgba(255, 255, 255, 0.86);
+      text-align: center;
+      font-size: clamp(1rem, 2.2vw, 1.25rem);
+      line-height: 1.5;
+    }
+
     @keyframes pulse {
       0%, 100% { text-shadow: 0 0 20px rgba(150, 80, 255, 0.8), 0 0 60px rgba(150, 80, 255, 0.4); }
       50%       { text-shadow: 0 0 30px rgba(150, 80, 255, 1),   0 0 90px rgba(150, 80, 255, 0.6); }
@@ -62,9 +72,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       width: 240px;
-      height: 160px;
+      min-height: 260px;
       border-radius: 16px;
       border: 2px solid rgba(255, 255, 255, 0.15);
       background: rgba(255, 255, 255, 0.05);
@@ -76,7 +86,7 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
       text-align: center;
-      padding: 1.5rem;
+      padding: 1.4rem 1.2rem 2.8rem;
       cursor: pointer;
       transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
       position: relative;
@@ -107,18 +117,34 @@
       font-size: 2.4rem;
       margin-bottom: 0.75rem;
     }
+
+    .game-title {
+      margin-bottom: 0.9rem;
+    }
+
+    .game-tagline {
+      font-size: 0.83rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.84);
+    }
   </style>
 </head>
 <body>
   <h1>Play Perpay Games</h1>
+  <p class="subtitle">Turn your financial milestones into a victory lap. Outrun debt and sprint toward a better score on the streets of Philly.</p>
   <div class="games">
     <a class="game-card" href="perpay-credit-runner.html">
       <span class="game-icon">💳</span>
-      Credit Score Runner
+      <span class="game-title">The 850 Dash</span>
+      <span class="game-tagline">Every 500m adds 30 points to your score. Run the distance and unlock your financial future.</span>
     </a>
     <a class="game-card" href="perpay-loan-runner.html">
       <span class="game-icon">🏦</span>
-      Loan Runner
+      <span class="game-title">Loan Runner</span>
+      <span class="game-tagline">Race against your balance. Every paycheck deduction clears the path to your "Loan Completed" finish line.</span>
     </a>
   </div>
 </body>
