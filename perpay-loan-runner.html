@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PerPay Loan Runner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #0a0a1a 0%, #0f1f3a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+
+        #wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #title {
+            color: #3A80FF;
+            font-size: 26px;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+        }
+
+        #canvas {
+            border: 3px solid #3A80FF;
+            border-radius: 6px;
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0);
+            display: block;
+        }
+
+        #hint {
+            color: #445;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+            letter-spacing: 1px;
+        }
+
+        /* Overlay screens */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,5,20,0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            z-index: 20;
+        }
+
+        .overlay.hidden { display: none; }
+
+        .overlay h2 {
+            font-size: 38px;
+            letter-spacing: 2px;
+        }
+
+        #startScreen h2 { color: #3A80FF; }
+        #gameOverScreen h2 { color: #ff5252; }
+        #winScreen h2 {
+            color: #3A80FF;
+            text-shadow: 0 0 30px rgba(0,200,83,0.8);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%,100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid #3A80FF;
+            border-radius: 14px;
+            padding: 28px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 320px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            color: #88b;
+            font-size: 11px;
+            font-family: Arial, sans-serif;
+            letter-spacing: 2px;
+        }
+
+        input[type="number"] {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid #334;
+            border-radius: 7px;
+            color: #fff;
+            font-size: 20px;
+            font-family: 'Arial Black', Arial, sans-serif;
+            padding: 9px 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+
+        input[type="number"]:focus { border-color: #3A80FF; }
+
+        .btn {
+            background: #3A80FF;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Arial Black', Arial, sans-serif;
+            font-size: 15px;
+            letter-spacing: 1px;
+            padding: 13px 24px;
+            transition: all 0.18s;
+        }
+
+        .btn:hover {
+            background: #00e676;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 18px rgba(0,200,83,0.4);
+        }
+
+        .info-text {
+            color: #778;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            line-height: 1.9;
+        }
+
+        .detail-box {
+            color: #ccd;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            line-height: 2;
+        }
+
+        .detail-box strong { color: #fff; }
+
+        .obstacle-guide {
+            display: flex;
+            gap: 24px;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            color: #889;
+        }
+
+        .obs-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .obs-icon {
+            font-size: 22px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="wrapper">
+    <div id="title">⚡ PERPAY LOAN RUNNER ⚡</div>
+    <canvas id="canvas" width="820" height="420"></canvas>
+    <div id="hint">SPACE / ↑ = JUMP &nbsp;&nbsp;|&nbsp;&nbsp; ↓ = DUCK &nbsp;&nbsp;|&nbsp;&nbsp; Don't crash!</div>
+</div>
+
+<!-- Start Screen -->
+<div id="startScreen" class="overlay">
+    <h2>🐕 PERPAY LOAN RUNNER</h2>
+    <p class="info-text" style="color:#aab; font-size:14px;">Streets of Philadelphia Edition</p>
+
+    <div class="card">
+        <div class="form-group">
+            <label>TOTAL LOAN AMOUNT ($)</label>
+            <input type="number" id="loanAmount" value="400" min="1">
+        </div>
+        <div class="form-group">
+            <label>PAYMENT AMOUNT ($)</label>
+            <input type="number" id="paymentAmount" value="20" min="1">
+        </div>
+        <button class="btn" id="startBtn">🏃 START RUNNING!</button>
+        <div class="info-text">
+            Every 500m you run = one payment received<br>
+            Complete all payments to win!
+        </div>
+    </div>
+
+    <div class="obstacle-guide">
+        <div class="obs-item"><span class="obs-icon">🗑️</span><span>Trash Can<br>JUMP</span></div>
+        <div class="obs-item"><span class="obs-icon">🏈</span><span>Football<br>DUCK</span></div>
+        <div class="obs-item"><span class="obs-icon">🚌</span><span>SEPTA Bus<br>JUMP</span></div>
+    </div>
+</div>
+
+<!-- Game Over Screen -->
+<div id="gameOverScreen" class="overlay hidden">
+    <h2>💀 YOU CRASHED!</h2>
+    <div class="detail-box" id="gameOverDetails"></div>
+    <button class="btn" id="retryBtn">🔄 TRY AGAIN</button>
+</div>
+
+<!-- Win Screen -->
+<div id="winScreen" class="overlay hidden">
+    <h2>🎉 LOAN PAID OFF! 🎉</h2>
+    <div class="detail-box" id="winDetails"></div>
+    <button class="btn" id="playAgainBtn">🏃 PLAY AGAIN</button>
+</div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────
+// Canvas & constants
+// ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const W = canvas.width;   // 820
+const H = canvas.height;  // 420
+
+const GROUND_Y = 340;   // y where player feet rest (sidewalk surface)
+const PLAYER_X = 130;   // player's fixed x
+
+// Game config
+let loanAmount    = 400;
+let paymentAmount = 20;
+let numPayments   = 20;
+let totalMeters   = 10000; // numPayments * 500
+
+// Runtime state
+let gameState     = 'idle'; // idle | playing | dead | win
+let distanceM     = 0;
+let paymentsMade  = 0;
+let speed         = 320;    // px/s base visual speed
+let timeElapsed   = 0;
+let lastTime      = 0;
+let animFrameId   = null;
+
+const METERS_PER_SECOND = 25; // game world speed: 500m / 20s
+
+// ─────────────────────────────────────────────────────────────
+// Player
+// ─────────────────────────────────────────────────────────────
+const player = {
+    x:        PLAYER_X,
+    y:        GROUND_Y,   // feet y
+    vy:       0,
+    state:    'run',      // run | jump | duck
+    legFrame: 0,
+    legTimer: 0,
+
+    reset() {
+        this.y = GROUND_Y; this.vy = 0;
+        this.state = 'run'; this.legFrame = 0; this.legTimer = 0;
+    },
+
+    jump() {
+        if (this.state === 'duck') return;
+        if (this.y >= GROUND_Y - 2) {
+            this.vy = -560;
+            this.state = 'jump';
+        }
+    },
+
+    setDuck(on) {
+        if (this.state === 'jump') return;
+        this.state = on ? 'duck' : 'run';
+    },
+
+    update(dt) {
+        if (this.state === 'jump' || this.y < GROUND_Y) {
+            this.vy += 1450 * dt;
+            this.y  += this.vy * dt;
+            if (this.y >= GROUND_Y) {
+                this.y = GROUND_Y; this.vy = 0;
+                if (this.state === 'jump') this.state = 'run';
+            }
+        }
+        if (this.state === 'run') {
+            this.legTimer += dt;
+            if (this.legTimer > 0.1) { this.legFrame ^= 1; this.legTimer = 0; }
+        }
+    },
+
+    // Returns hitbox {x,y,w,h}  (y = top of hitbox)
+    hitbox() {
+        if (this.state === 'duck') {
+            // dog crouched: wide and low (body tops out ~feet-38)
+            return { x: this.x - 28 + 5, y: this.y - 38 + 4, w: 56 - 8, h: 36 };
+        }
+        // dog standing: body+head, top ~feet-73
+        return { x: this.x - 20 + 4, y: this.y - 73 + 5, w: 42, h: 68 };
+    },
+
+    draw() {
+        if      (this.state === 'duck') drawDuck(this.x, this.y);
+        else if (this.state === 'jump') drawJump(this.x, this.y);
+        else                            drawRun (this.x, this.y, this.legFrame);
+    }
+};
+
+/* ── dog drawing helpers ── */
+function _dogHead(c, cx, feet, hx, hy) {
+    // neck
+    c.fillStyle = '#f0f0f0';
+    c.fillRect(hx - 6, hy + 2, 12, 20);
+    // head
+    c.fillStyle = '#f4f4f4';
+    c.beginPath(); c.arc(hx, hy, 15, 0, Math.PI * 2); c.fill();
+    // floppy ear (left/behind)
+    c.fillStyle = '#b8904a';
+    c.beginPath(); c.ellipse(hx - 8, hy + 7, 7, 13, -0.3, 0, Math.PI * 2); c.fill();
+    // floppy ear (right/front)
+    c.fillStyle = '#c8a05a';
+    c.beginPath(); c.ellipse(hx + 6, hy + 8, 6, 11, 0.25, 0, Math.PI * 2); c.fill();
+    // snout
+    c.fillStyle = '#ede0c8';
+    c.beginPath(); c.ellipse(hx + 12, hy + 2, 10, 7, 0.1, 0, Math.PI * 2); c.fill();
+    // nose
+    c.fillStyle = '#1a1a1a';
+    c.beginPath(); c.arc(hx + 20, hy + 1, 3.5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.beginPath(); c.arc(hx + 19, hy - 1, 1.3, 0, Math.PI * 2); c.fill();
+    // eye
+    c.fillStyle = '#1a1a1a';
+    c.beginPath(); c.arc(hx + 7, hy - 5, 3, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(hx + 8, hy - 6, 1.2, 0, Math.PI * 2); c.fill();
+    // collar
+    c.fillStyle = '#3A80FF';
+    c.fillRect(hx - 6, hy + 8, 13, 5);
+    c.fillStyle = '#ffd700';
+    c.beginPath(); c.arc(hx + 1, hy + 14, 3, 0, Math.PI * 2); c.fill();
+}
+
+function _dogTail(c, cx, feet, up) {
+    c.strokeStyle = '#e8e8e8'; c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(cx - 24, feet - 38);
+    if (up) {
+        c.bezierCurveTo(cx - 42, feet - 38, cx - 52, feet - 54, cx - 42, feet - 68);
+    } else {
+        c.bezierCurveTo(cx - 40, feet - 38, cx - 50, feet - 52, cx - 42, feet - 64);
+    }
+    c.stroke();
+    c.strokeStyle = '#f8f8f8'; c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(cx - 24, feet - 38);
+    if (up) {
+        c.bezierCurveTo(cx - 41, feet - 38, cx - 50, feet - 53, cx - 41, feet - 66);
+    } else {
+        c.bezierCurveTo(cx - 39, feet - 38, cx - 48, feet - 51, cx - 41, feet - 62);
+    }
+    c.stroke();
+}
+
+function drawRun(cx, feet, lf) {
+    const c = ctx;
+    c.save();
+    _dogTail(c, cx, feet, false);
+
+    // body
+    c.fillStyle = '#f2f2f2';
+    c.beginPath(); c.ellipse(cx - 4, feet - 42, 28, 17, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8e8e8';
+    c.beginPath(); c.ellipse(cx - 2, feet - 37, 20, 11, 0, 0, Math.PI * 2); c.fill();
+
+    // legs (4) — back pair near cx-12, front pair near cx+10
+    c.fillStyle = '#eaeaea';
+    if (lf === 0) {
+        c.fillRect(cx - 20, feet - 30, 9, 30); // back-L fwd
+        c.fillRect(cx - 9,  feet - 30, 9, 20); // back-R back
+        c.fillRect(cx + 4,  feet - 30, 9, 30); // front-L fwd
+        c.fillRect(cx + 15, feet - 30, 9, 20); // front-R back
+        c.fillStyle = '#d8d8d8';
+        c.beginPath(); c.ellipse(cx - 16, feet + 2, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx - 5,  feet - 8, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx + 8,  feet + 2, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx + 19, feet - 8, 7, 4, 0, 0, Math.PI*2); c.fill();
+    } else {
+        c.fillRect(cx - 20, feet - 30, 9, 20);
+        c.fillRect(cx - 9,  feet - 30, 9, 30);
+        c.fillRect(cx + 4,  feet - 30, 9, 20);
+        c.fillRect(cx + 15, feet - 30, 9, 30);
+        c.fillStyle = '#d8d8d8';
+        c.beginPath(); c.ellipse(cx - 16, feet - 8, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx - 5,  feet + 2, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx + 8,  feet - 8, 7, 4, 0, 0, Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(cx + 19, feet + 2, 7, 4, 0, 0, Math.PI*2); c.fill();
+    }
+
+    _dogHead(c, cx, feet, cx + 18, feet - 58);
+    c.restore();
+}
+
+function drawJump(cx, feet) {
+    const c = ctx;
+    c.save();
+    _dogTail(c, cx, feet, true);
+
+    // body
+    c.fillStyle = '#f2f2f2';
+    c.beginPath(); c.ellipse(cx - 4, feet - 42, 28, 17, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8e8e8';
+    c.beginPath(); c.ellipse(cx - 2, feet - 37, 20, 11, 0, 0, Math.PI * 2); c.fill();
+
+    // tucked legs
+    c.fillStyle = '#eaeaea';
+    c.fillRect(cx - 20, feet - 36, 9, 14);
+    c.fillRect(cx - 9,  feet - 36, 9, 14);
+    c.fillRect(cx + 4,  feet - 36, 9, 14);
+    c.fillRect(cx + 15, feet - 36, 9, 14);
+    c.fillStyle = '#d8d8d8';
+    c.beginPath(); c.ellipse(cx - 16, feet - 24, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx - 5,  feet - 24, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx + 8,  feet - 24, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx + 19, feet - 24, 7, 4, 0, 0, Math.PI*2); c.fill();
+
+    _dogHead(c, cx, feet, cx + 18, feet - 58);
+    c.restore();
+}
+
+function drawDuck(cx, feet) {
+    const c = ctx;
+    c.save();
+
+    // tail — low
+    c.strokeStyle = '#e8e8e8'; c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(cx - 30, feet - 20);
+    c.bezierCurveTo(cx - 44, feet - 20, cx - 50, feet - 32, cx - 43, feet - 42);
+    c.stroke();
+    c.strokeStyle = '#f8f8f8'; c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(cx - 30, feet - 20);
+    c.bezierCurveTo(cx - 43, feet - 20, cx - 48, feet - 31, cx - 42, feet - 40);
+    c.stroke();
+
+    // body — low and flat
+    c.fillStyle = '#f2f2f2';
+    c.beginPath(); c.ellipse(cx - 2, feet - 24, 32, 15, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e8e8e8';
+    c.beginPath(); c.ellipse(cx, feet - 20, 22, 9, 0, 0, Math.PI * 2); c.fill();
+
+    // very short bent legs
+    c.fillStyle = '#eaeaea';
+    c.fillRect(cx - 20, feet - 16, 9, 16);
+    c.fillRect(cx - 8,  feet - 16, 9, 16);
+    c.fillRect(cx + 4,  feet - 16, 9, 16);
+    c.fillRect(cx + 16, feet - 16, 9, 16);
+    c.fillStyle = '#d8d8d8';
+    c.beginPath(); c.ellipse(cx - 16, feet, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx - 4,  feet, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx + 8,  feet, 7, 4, 0, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx + 20, feet, 7, 4, 0, 0, Math.PI*2); c.fill();
+
+    // head pushed low and forward
+    _dogHead(c, cx, feet, cx + 22, feet - 38);
+    c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Obstacles
+// ─────────────────────────────────────────────────────────────
+class Obstacle {
+    constructor(type) {
+        this.type   = type;
+        this.active = true;
+        switch (type) {
+            case 'trashcan': this.w = 34; this.h = 56; this.floatY = 0;   break;
+            case 'football': this.w = 38; this.h = 26; this.floatY = 48;  break;
+            case 'bus':      this.w = 95; this.h = 72; this.floatY = 0;   break;
+        }
+        this.x = W + 20;
+    }
+
+    update(dt, spd) {
+        this.x -= spd * dt;
+        if (this.x + this.w < -20) this.active = false;
+    }
+
+    // top-left corner of obstacle bounding box
+    top()  { return GROUND_Y - this.h - this.floatY; }
+
+    hitbox() {
+        const pad = 5;
+        return { x: this.x + pad, y: this.top() + pad, w: this.w - pad*2, h: this.h - pad*2 };
+    }
+
+    draw() {
+        switch (this.type) {
+            case 'trashcan': drawTrashCan(this.x, GROUND_Y, this.w, this.h); break;
+            case 'football': drawFootball(this.x, this.top(), this.w, this.h); break;
+            case 'bus':      drawBus     (this.x, GROUND_Y, this.w, this.h); break;
+        }
+    }
+}
+
+function drawTrashCan(x, gnd, w, h) {
+    const c = ctx, top = gnd - h, cx = x + w/2;
+    c.save();
+    // body
+    c.fillStyle = '#546e7a';
+    c.fillRect(x + 2, top + 12, w - 4, h - 12);
+    // vertical lines
+    c.strokeStyle = '#455a64'; c.lineWidth = 1.5;
+    for (let i = 1; i < 3; i++) {
+        const ly = top + 12 + (h - 12) * i/3;
+        c.beginPath(); c.moveTo(x+2, ly); c.lineTo(x+w-2, ly); c.stroke();
+    }
+    // lid
+    c.fillStyle = '#37474f';
+    c.fillRect(x - 3, top, w + 6, 14);
+    // handle arc
+    c.strokeStyle = '#263238'; c.lineWidth = 3;
+    c.beginPath(); c.arc(cx, top, 9, Math.PI, 0); c.stroke();
+    // wheels
+    c.fillStyle = '#1a1a1a';
+    [[x+7, gnd+3],[x+w-7, gnd+3]].forEach(([wx,wy]) => {
+        c.beginPath(); c.arc(wx, wy, 5, 0, Math.PI*2); c.fill();
+    });
+    c.restore();
+}
+
+function drawFootball(x, top, w, h) {
+    const c = ctx, cx = x + w/2, cy = top + h/2;
+    c.save();
+    // shadow
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.beginPath(); c.ellipse(cx, GROUND_Y + 4, w/2, 5, 0, 0, Math.PI*2); c.fill();
+    // ball
+    c.fillStyle = '#6d4c41';
+    c.beginPath(); c.ellipse(cx, cy, w/2, h/2, 0.25, 0, Math.PI*2); c.fill();
+    // seam
+    c.strokeStyle = '#4e342e'; c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(x + 5, cy);
+    c.bezierCurveTo(cx, cy - h/2 + 2, cx, cy + h/2 - 2, x + w - 5, cy);
+    c.stroke();
+    // laces
+    c.strokeStyle = 'white'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(cx - 7, cy - 5); c.lineTo(cx + 7, cy - 5); c.stroke();
+    for (let i = -5; i <= 5; i += 5) {
+        c.beginPath(); c.moveTo(cx+i, cy-8); c.lineTo(cx+i, cy-2); c.stroke();
+    }
+    // motion lines
+    c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+        c.beginPath(); c.moveTo(x-8-i*8, cy-5+i*5); c.lineTo(x-1-i*8, cy-3+i*5); c.stroke();
+    }
+    c.restore();
+}
+
+function drawBus(x, gnd, w, h) {
+    const c = ctx, top = gnd - h;
+    c.save();
+    // body
+    c.fillStyle = '#1565c0';
+    c.fillRect(x, top, w, h - 12);
+    // front face
+    c.fillStyle = '#0d47a1';
+    c.fillRect(x + w - 14, top + 6, 14, h - 18);
+    // windows
+    c.fillStyle = '#cfe8ff';
+    for (let i = 0; i < 3; i++) c.fillRect(x + 6 + i*24, top+10, 18, 18);
+    c.fillRect(x + w - 11, top+10, 9, 18);
+    // SEPTA text
+    c.fillStyle = 'white'; c.font = 'bold 9px Arial';
+    c.fillText('SEPTA', x + 8, top + h - 20);
+    // orange stripe
+    c.fillStyle = '#ff8f00';
+    c.fillRect(x, top + h - 26, w - 14, 4);
+    // wheels
+    [[x+16, gnd+3],[x+w-18, gnd+3]].forEach(([wx,wy]) => {
+        c.fillStyle = '#1a1a1a';
+        c.beginPath(); c.arc(wx, wy, 11, 0, Math.PI*2); c.fill();
+        c.fillStyle = '#bbb';
+        c.beginPath(); c.arc(wx, wy,  5, 0, Math.PI*2); c.fill();
+    });
+    c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Parallax Background
+// ─────────────────────────────────────────────────────────────
+const bg = {
+    farBldgs:  [],
+    rowHouses: [],
+    farOff:  0,
+    nearOff: 0,
+    gndOff:  0,
+
+    rng: Math.random,
+
+    init() {
+        this.farOff = 0; this.nearOff = 0; this.gndOff = 0;
+        this.farBldgs  = this._genFar(0, W + 600);
+        this.rowHouses = this._genRow(0, W + 900);
+    },
+
+    _genFar(x0, x1) {
+        const out = []; let x = x0;
+        while (x < x1) {
+            const r = this.rng();
+            if (r < 0.09 && x > 300) {
+                // City Hall
+                out.push({ x, w: 140, h: 150, type: 'cityhall' });
+                x += 160;
+            } else if (r < 0.18 && x > 300) {
+                // Philadelphia Art Museum
+                out.push({ x, w: 175, h: 105, type: 'artmuseum' });
+                x += 195;
+            } else {
+                const w = 60 + this.rng()*90, h = 80 + this.rng()*130;
+                const colors = ['#3a3a4a','#4a3828','#2c3a4a','#3c2c2c','#2c3c2c'];
+                out.push({ x, w, h, type: 'generic', col: colors[Math.floor(this.rng()*colors.length)] });
+                x += w;
+            }
+        }
+        return out;
+    },
+
+    _genRow(x0, x1) {
+        const brickColors = ['#8b3a2a','#7d3020','#a04030','#6b3020','#953030'];
+        const doorColors  = ['#1a0e05','#05180a','#050f1a','#1a1505','#12051a'];
+        const out = []; let x = x0;
+        while (x < x1) {
+            const w = 72 + this.rng()*40, h = 105 + this.rng()*65;
+            const wins = 1 + Math.floor(this.rng()*2);
+            out.push({ x, w, h, wins,
+                col:  brickColors[Math.floor(this.rng()*brickColors.length)],
+                door: doorColors [Math.floor(this.rng()*doorColors.length)]
+            });
+            x += w + 2;
+        }
+        return out;
+    },
+
+    update(dt, spd) {
+        this.farOff  -= spd * 0.28 * dt;
+        this.nearOff -= spd * 0.65 * dt;
+        this.gndOff  -= spd * dt;
+
+        // extend far buildings
+        const fb = this.farBldgs;
+        const fLast = fb[fb.length-1];
+        if (fLast && fLast.x + fLast.w + this.farOff < W + 200) {
+            const ext = this._genFar(fLast.x + fLast.w, fLast.x + fLast.w + 700);
+            fb.push(...ext);
+        }
+        this.farBldgs = fb.filter(b => b.x + b.w + this.farOff > -50);
+
+        // extend row houses
+        const rh = this.rowHouses;
+        const rLast = rh[rh.length-1];
+        if (rLast && rLast.x + rLast.w + this.nearOff < W + 200) {
+            const ext = this._genRow(rLast.x + rLast.w, rLast.x + rLast.w + 1000);
+            rh.push(...ext);
+        }
+        this.rowHouses = rh.filter(h => h.x + h.w + this.nearOff > -50);
+    },
+
+    draw() {
+        // Sky
+        const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+        sky.addColorStop(0, '#8ba8c8');
+        sky.addColorStop(1, '#c8d8e8');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND_Y);
+
+        // Far buildings
+        ctx.save(); ctx.translate(this.farOff, 0);
+        for (const b of this.farBldgs) this._drawFar(b);
+        ctx.restore();
+
+        // Row houses
+        ctx.save(); ctx.translate(this.nearOff, 0);
+        for (const h of this.rowHouses) this._drawRow(h);
+        ctx.restore();
+
+        // Sidewalk
+        ctx.fillStyle = '#b0a898'; ctx.fillRect(0, GROUND_Y, W, 22);
+        ctx.fillStyle = '#8a8070'; ctx.fillRect(0, GROUND_Y+20, W, 3);
+
+        // Sidewalk seams
+        ctx.save(); ctx.translate(this.gndOff % 110, 0);
+        ctx.strokeStyle = '#9a9080'; ctx.lineWidth = 1;
+        for (let x = 0; x < W + 120; x += 110) {
+            ctx.beginPath(); ctx.moveTo(x, GROUND_Y+1); ctx.lineTo(x, GROUND_Y+21); ctx.stroke();
+        }
+        ctx.restore();
+
+        // Road
+        ctx.fillStyle = '#484848'; ctx.fillRect(0, GROUND_Y+23, W, H - GROUND_Y - 23);
+
+        // Dashed center line
+        ctx.save(); ctx.translate(this.gndOff % 64, 0);
+        ctx.strokeStyle = '#d4c020'; ctx.lineWidth = 2; ctx.setLineDash([32,32]);
+        ctx.beginPath(); ctx.moveTo(0, GROUND_Y+52); ctx.lineTo(W+75, GROUND_Y+52); ctx.stroke();
+        ctx.setLineDash([]); ctx.restore();
+    },
+
+    _drawFar(b) {
+        if (b.type === 'cityhall')  { drawCityHall (b.x, b.w, b.h); return; }
+        if (b.type === 'artmuseum') { drawArtMuseum(b.x, b.w, b.h); return; }
+        const top = GROUND_Y - b.h;
+        ctx.fillStyle = b.col; ctx.fillRect(b.x, top, b.w, b.h);
+        ctx.fillStyle = 'rgba(180,210,255,0.18)';
+        const cols = Math.max(1, Math.floor(b.w/16));
+        const rows = Math.max(1, Math.floor(b.h/18));
+        for (let r = 0; r < rows; r++)
+            for (let c = 0; c < cols; c++)
+                if (Math.random() > 0.5)
+                    ctx.fillRect(b.x+4+c*16, top+5+r*18, 10, 10);
+    },
+
+    _drawRow(h) {
+        const top = GROUND_Y - h.h;
+        // main brick face
+        ctx.fillStyle = h.col; ctx.fillRect(h.x, top, h.w, h.h);
+        // brick pattern (subtle)
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 0.5;
+        for (let row = 0; row < Math.floor(h.h/10); row++) {
+            const rowY = top + row*10;
+            const offset = (row%2)*14;
+            for (let bx = h.x - 14 + offset; bx < h.x + h.w + 14; bx += 28) {
+                ctx.strokeRect(bx, rowY, 26, 9);
+            }
+        }
+        // roof parapet
+        ctx.fillStyle = '#1e1408'; ctx.fillRect(h.x-2, top, h.w+4, 9);
+        // windows (2 rows)
+        const ww = 15, wh = 20;
+        const spc = h.w / (h.wins+1);
+        ctx.fillStyle = '#d0e8ff';
+        for (let row = 0; row < 2; row++) {
+            const wy = top + 18 + row*36;
+            for (let i = 0; i < h.wins; i++) {
+                const wx = h.x + spc*(i+1) - ww/2;
+                ctx.fillStyle = '#d0e8ff'; ctx.fillRect(wx, wy, ww, wh);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+                ctx.strokeRect(wx, wy, ww, wh);
+                ctx.beginPath(); ctx.moveTo(wx+ww/2,wy); ctx.lineTo(wx+ww/2,wy+wh); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wx,wy+wh/2); ctx.lineTo(wx+ww,wy+wh/2); ctx.stroke();
+            }
+        }
+        // door
+        const dw=14, dh=26, dx=h.x+h.w/2-dw/2, dy=GROUND_Y-dh;
+        ctx.fillStyle = h.door; ctx.fillRect(dx, dy, dw, dh);
+        ctx.fillStyle = '#c8a000'; ctx.beginPath(); ctx.arc(dx+dw-3, dy+dh*0.52, 2, 0, Math.PI*2); ctx.fill();
+        // steps
+        ctx.fillStyle = '#c8c0b0'; ctx.fillRect(dx-4, GROUND_Y-7, dw+8, 7);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// Philadelphia Landmark Drawings (far background)
+// ─────────────────────────────────────────────────────────────
+function drawCityHall(bx, bw, bh) {
+    const c = ctx;
+    const stone  = '#b8b2a4';
+    const dark   = '#9a9080';
+    const light  = '#cec8b8';
+    const baseW  = bw;         // 140
+    const baseH  = 80;
+    const twW    = 34;
+    const twH    = bh;         // 150 total tower height from ground
+    const baseTop = GROUND_Y - baseH;
+    const twL    = bx + (baseW - twW) / 2;
+    const twTop  = GROUND_Y - twH;
+
+    c.save();
+
+    // ── Tower shaft ──
+    c.fillStyle = stone;
+    c.fillRect(twL, twTop + 20, twW, twH - 20);
+
+    // Tower ornate band (clock level)
+    c.fillStyle = dark;
+    c.fillRect(twL - 5, twTop + 56, twW + 10, 18);
+
+    // Clock face
+    c.fillStyle = light;
+    c.beginPath(); c.arc(twL + twW/2, twTop + 45, 10, 0, Math.PI*2); c.fill();
+    c.strokeStyle = dark; c.lineWidth = 1;
+    c.beginPath(); c.arc(twL + twW/2, twTop + 45, 10, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = '#333'; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(twL+twW/2, twTop+45); c.lineTo(twL+twW/2, twTop+38); c.stroke();
+    c.beginPath(); c.moveTo(twL+twW/2, twTop+45); c.lineTo(twL+twW/2+7, twTop+45); c.stroke();
+
+    // Upper spire body
+    c.fillStyle = light;
+    c.fillRect(twL + 5, twTop + 74, twW - 10, 30);
+
+    // Tapered spire tip
+    c.fillStyle = dark;
+    c.beginPath();
+    c.moveTo(twL + twW/2, twTop);
+    c.lineTo(twL + twW/2 - 5, twTop + 22);
+    c.lineTo(twL + twW/2 + 5, twTop + 22);
+    c.closePath(); c.fill();
+
+    // William Penn silhouette atop spire
+    c.fillStyle = '#7a7060';
+    c.fillRect(twL + twW/2 - 2, twTop - 12, 4, 12);
+    c.beginPath(); c.arc(twL + twW/2, twTop - 14, 3.5, 0, Math.PI*2); c.fill();
+    // Hat brim
+    c.fillStyle = '#5a5040';
+    c.fillRect(twL + twW/2 - 5, twTop - 19, 10, 3);
+    c.fillRect(twL + twW/2 - 3, twTop - 24, 6, 5);
+
+    // ── Base building ──
+    c.fillStyle = stone;
+    c.fillRect(bx, baseTop, baseW, baseH);
+
+    // Horizontal cornice lines
+    c.strokeStyle = dark; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(bx, baseTop + 4); c.lineTo(bx+baseW, baseTop + 4); c.stroke();
+    c.beginPath(); c.moveTo(bx, baseTop - 3); c.lineTo(bx+baseW, baseTop - 3); c.stroke();
+
+    // Windows — 3 rows × 6 cols
+    c.fillStyle = 'rgba(180,215,245,0.38)';
+    for (let row = 0; row < 3; row++)
+        for (let col = 0; col < 6; col++)
+            c.fillRect(bx + 8 + col * 20, baseTop + 8 + row * 22, 11, 15);
+
+    // Arched entrance
+    c.fillStyle = dark;
+    c.fillRect(twL + 4, GROUND_Y - 22, twW - 8, 22);
+    c.beginPath(); c.arc(twL + twW/2, GROUND_Y - 22, (twW-8)/2, Math.PI, 0); c.fill();
+
+    c.restore();
+}
+
+function drawArtMuseum(bx, bw, bh) {
+    const c = ctx;
+    const cream  = '#c4bc9e';
+    const dark   = '#a8a080';
+    const light  = '#d8d0b4';
+    const bodyW  = bw;        // 175
+    const bodyH  = bh - 36;  // ~69 body height
+    const bodyTop = GROUND_Y - bh + 36;
+
+    c.save();
+
+    // ── Rocky Steps (3 tiers) ──
+    const sw = bodyW + 50, sl = bx - 25;
+    c.fillStyle = dark;
+    c.fillRect(sl - 8, GROUND_Y - 24, sw + 16, 8);
+    c.fillStyle = cream;
+    c.fillRect(sl - 4, GROUND_Y - 16, sw + 8, 8);
+    c.fillStyle = light;
+    c.fillRect(sl,     GROUND_Y - 8,  sw,     8);
+
+    // ── Main body ──
+    c.fillStyle = cream;
+    c.fillRect(bx, bodyTop, bodyW, bodyH);
+
+    // ── Pediment (triangle) ──
+    c.fillStyle = light;
+    c.beginPath();
+    c.moveTo(bx - 12, bodyTop);
+    c.lineTo(bx + bodyW/2, bodyTop - 36);
+    c.lineTo(bx + bodyW + 12, bodyTop);
+    c.closePath(); c.fill();
+
+    // Pediment outline
+    c.strokeStyle = dark; c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(bx - 12, bodyTop);
+    c.lineTo(bx + bodyW/2, bodyTop - 36);
+    c.lineTo(bx + bodyW + 12, bodyTop);
+    c.stroke();
+
+    // Pediment sculpture hint (a few small shapes)
+    c.fillStyle = dark;
+    for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.arc(bx + bodyW/2 - 20 + i*20, bodyTop - 14, 5, Math.PI, 0);
+        c.fill();
+    }
+
+    // ── Columns (8) ──
+    const numCols = 8;
+    const colSpacing = bodyW / (numCols - 1);
+    c.fillStyle = light;
+    for (let i = 0; i < numCols; i++) {
+        const cx2 = bx + i * colSpacing;
+        c.fillRect(cx2 - 4, bodyTop - 2, 8, bodyH + 2);  // shaft
+        c.fillStyle = cream;
+        c.fillRect(cx2 - 6, bodyTop - 6, 12, 6);           // capital
+        c.fillRect(cx2 - 5, GROUND_Y - 24, 10, 5);         // base
+        c.fillStyle = light;
+    }
+
+    // Entablature band above columns
+    c.fillStyle = cream;
+    c.fillRect(bx - 14, bodyTop - 8, bodyW + 28, 8);
+
+    // Windows in body
+    c.fillStyle = 'rgba(180,215,245,0.32)';
+    for (let i = 0; i < 5; i++)
+        c.fillRect(bx + 12 + i * 30, bodyTop + 12, 14, 22);
+
+    // "ART MUSEUM" label
+    c.fillStyle = dark;
+    c.font = '7px Arial';
+    c.textAlign = 'center';
+    c.fillText('ART MUSEUM', bx + bodyW/2, bodyTop + 46);
+    c.textAlign = 'left';
+
+    c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Payment Signs
+// ─────────────────────────────────────────────────────────────
+const signs = {
+    list: [],
+
+    spawn(text, sub) {
+        this.list.push({ x: W + 60, text, sub, alpha: 1.0 });
+    },
+
+    update(dt, spd) {
+        for (const s of this.list) {
+            s.x -= spd * dt;
+            if (s.x < W * 0.45) s.alpha -= dt * 1.1;
+        }
+        this.list = this.list.filter(s => s.alpha > 0 && s.x > -260);
+    },
+
+    draw() {
+        for (const s of this.list) {
+            const alpha = Math.max(0, s.alpha);
+            ctx.save(); ctx.globalAlpha = alpha;
+            const sx = s.x, sy = GROUND_Y - 165;
+            // post
+            ctx.fillStyle = '#999'; ctx.fillRect(sx-1, sy+58, 3, GROUND_Y-sy-58);
+            // board
+            ctx.fillStyle = '#3A80FF'; ctx.strokeStyle = '#007a30'; ctx.lineWidth = 2;
+            rrect(ctx, sx-110, sy, 220, 58, 10);
+            ctx.fill(); ctx.stroke();
+            // text
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+            ctx.font = 'bold 20px "Arial Black",Arial'; ctx.fillText(s.text, sx, sy+26);
+            ctx.font = '13px Arial'; ctx.fillText(s.sub, sx, sy+44);
+            ctx.textAlign = 'left';
+            ctx.restore();
+        }
+    }
+};
+
+function rrect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.arcTo(x+w,y,x+w,y+h,r);
+    c.lineTo(x+w,y+h-r); c.arcTo(x+w,y+h,x+w-r,y+h,r);
+    c.lineTo(x+r,y+h); c.arcTo(x,y+h,x,y+h-r,r);
+    c.lineTo(x,y+r); c.arcTo(x,y,x+r,y,r);
+    c.closePath();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Finale Billboard
+// ─────────────────────────────────────────────────────────────
+const finaleSign = {
+    active:        false,
+    x:             W + 200,  // center x of the board
+    settled:       false,
+    settledTime:   0,
+    SETTLE_X:      W / 2,
+    LINGER:        3.0,      // seconds to display before showing win overlay
+    confettiFired: false,
+
+    spawn() {
+        this.active        = true;
+        this.x             = W + 200;
+        this.settled       = false;
+        this.settledTime   = 0;
+        this.confettiFired = false;
+    },
+
+    reset() { this.active = false; },
+
+    // returns true when linger period is over (time to show win overlay)
+    update(dt, spd) {
+        if (!this.active) return false;
+        if (!this.settled) {
+            this.x -= spd * dt;
+            if (this.x <= this.SETTLE_X) {
+                this.x = this.SETTLE_X;
+                this.settled = true;
+            }
+        } else {
+            if (!this.confettiFired) {
+                confetti.burst(); confetti.burst();
+                this.confettiFired = true;
+            }
+            this.settledTime += dt;
+            if (this.settledTime >= this.LINGER) {
+                this.active = false;
+                return true;
+            }
+        }
+        return false;
+    },
+
+    draw() {
+        if (!this.active) return;
+        const sx = this.x;
+        const BW = 340, BH = 190;
+        const by = GROUND_Y - 290;
+
+        ctx.save();
+
+        // glow pulse when settled
+        if (this.settled) {
+            const pulse = 0.5 + 0.5 * Math.sin(this.settledTime * 5);
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur  = 12 + pulse * 28;
+        }
+
+        // posts
+        ctx.fillStyle = '#888';
+        ctx.fillRect(sx - 122, by + BH, 7, GROUND_Y - by - BH);
+        ctx.fillRect(sx + 115, by + BH, 7, GROUND_Y - by - BH);
+
+        // board drop shadow
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        rrect(ctx, sx - BW/2 + 5, by + 5, BW, BH, 14); ctx.fill();
+
+        // board background
+        ctx.fillStyle = '#050e24';
+        rrect(ctx, sx - BW/2, by, BW, BH, 14); ctx.fill();
+
+        // gold outer border
+        if (this.settled) {
+            const pulse = 0.5 + 0.5 * Math.sin(this.settledTime * 5);
+            ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 12 + pulse * 28;
+        }
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 4;
+        rrect(ctx, sx - BW/2, by, BW, BH, 14); ctx.stroke();
+
+        ctx.shadowBlur = 0;
+
+        // blue inner border
+        ctx.strokeStyle = '#3A80FF'; ctx.lineWidth = 2;
+        rrect(ctx, sx - BW/2 + 7, by + 7, BW - 14, BH - 14, 10); ctx.stroke();
+
+        // stars
+        ctx.fillStyle = '#ffd700'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('★   ★   ★', sx, by + 28);
+
+        // main headline
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 30px "Arial Black", Arial';
+        ctx.fillText('LOAN PAID OFF!', sx, by + 66);
+
+        // sub-headline
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px "Arial Black", Arial';
+        ctx.fillText('CONGRATS! 🎉', sx, by + 96);
+
+        // payment detail
+        ctx.fillStyle = '#7ab8ff'; ctx.font = '13px Arial';
+        ctx.fillText(`All ${numPayments} payments of $${paymentAmount} — complete!`, sx, by + 120);
+
+        // brand line
+        ctx.fillStyle = '#3A80FF'; ctx.font = 'bold 13px Arial';
+        ctx.fillText('Your Perpay loan is fully paid off!', sx, by + 144);
+
+        // footer
+        ctx.fillStyle = '#556'; ctx.font = '12px Arial';
+        ctx.fillText('🐕  Keep running — you\'re debt free!  🐕', sx, by + 169);
+
+        ctx.textAlign = 'left';
+        ctx.restore();
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// Obstacle Manager
+// ─────────────────────────────────────────────────────────────
+const obstacleMgr = {
+    list:        [],
+    nextSpawnT:  0,
+
+    reset() {
+        this.list = [];
+        this.nextSpawnT = 1.8;
+    },
+
+    update(dt, t, spd) {
+        if (t >= this.nextSpawnT) {
+            this._spawn();
+            const gap = Math.max(1.4, 3.2 - t * 0.012);
+            this.nextSpawnT = t + gap * (0.65 + Math.random()*0.7);
+        }
+        for (const o of this.list) o.update(dt, spd);
+        this.list = this.list.filter(o => o.active);
+    },
+
+    _spawn() {
+        const r = Math.random();
+        const type = r < 0.38 ? 'trashcan' : r < 0.72 ? 'football' : 'bus';
+        this.list.push(new Obstacle(type));
+    },
+
+    draw() { for (const o of this.list) o.draw(); }
+};
+
+// ─────────────────────────────────────────────────────────────
+// HUD
+// ─────────────────────────────────────────────────────────────
+function drawHUD() {
+    const remaining = Math.max(0, loanAmount - paymentsMade * paymentAmount);
+    const progress  = Math.min(1, distanceM / totalMeters);
+    const nextAt    = (paymentsMade + 1) * 500;
+    const toNext    = Math.max(0, nextAt - distanceM);
+
+    // background panel
+    ctx.fillStyle = 'rgba(0,0,0,0.52)';
+    rrect(ctx, 8, 8, W-16, 52, 8); ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText(`💰 Balance: $${remaining.toFixed(0)}`, 18, 28);
+    ctx.fillText(`✅ ${paymentsMade}/${numPayments} payments`, 18, 48);
+
+    // progress bar
+    const bx = 200, bw = W-400, by = 20, bh = 12;
+    ctx.fillStyle = '#333'; rrect(ctx, bx, by, bw, bh, 5); ctx.fill();
+    if (progress > 0) {
+        ctx.fillStyle = '#3A80FF';
+        rrect(ctx, bx, by, bw*progress, bh, 5); ctx.fill();
+    }
+    ctx.fillStyle = '#aaa'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(`${Math.floor(distanceM).toLocaleString()} / ${totalMeters.toLocaleString()} m`, bx+bw/2, by+bh+14);
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = 'right';
+    ctx.fillText(`Next payment in: ${Math.ceil(toNext)}m`, W-18, 28);
+    ctx.fillText(`($${paymentAmount})`, W-18, 46);
+    ctx.textAlign = 'left';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Collision
+// ─────────────────────────────────────────────────────────────
+function overlaps(a, b) {
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Input
+// ─────────────────────────────────────────────────────────────
+const keys = { down: false };
+
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameState === 'playing') player.jump();
+    }
+    if (e.code === 'ArrowDown') {
+        e.preventDefault(); keys.down = true;
+        if (gameState === 'playing') player.setDuck(true);
+    }
+});
+document.addEventListener('keyup', e => {
+    if (e.code === 'ArrowDown') {
+        keys.down = false;
+        if (gameState === 'playing') player.setDuck(false);
+    }
+});
+
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const ty = e.touches[0].clientY - canvas.getBoundingClientRect().top;
+    if (ty < H/2) player.jump();
+    else { keys.down = true; player.setDuck(true); }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault(); keys.down = false; player.setDuck(false);
+}, { passive: false });
+
+// ─────────────────────────────────────────────────────────────
+// Confetti (win celebration)
+// ─────────────────────────────────────────────────────────────
+const confetti = {
+    particles: [],
+    colors: ['#3A80FF','#ffeb3b','#f44336','#2196f3','#e91e63','#ff9800'],
+
+    burst() {
+        for (let i = 0; i < 80; i++) {
+            this.particles.push({
+                x: Math.random() * W, y: -10,
+                vx: (Math.random()-0.5)*220,
+                vy: 80 + Math.random()*180,
+                rot: Math.random()*360,
+                rotV: (Math.random()-0.5)*400,
+                w: 8 + Math.random()*8, h: 5 + Math.random()*5,
+                col: this.colors[Math.floor(Math.random()*this.colors.length)],
+                life: 1.0
+            });
+        }
+    },
+
+    update(dt) {
+        for (const p of this.particles) {
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            p.rot += p.rotV * dt;
+            if (p.y > H * 0.7) p.life -= dt * 1.5;
+        }
+        this.particles = this.particles.filter(p => p.life > 0);
+    },
+
+    draw() {
+        for (const p of this.particles) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI/180);
+            ctx.fillStyle = p.col;
+            ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+            ctx.restore();
+        }
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// Game Loop
+// ─────────────────────────────────────────────────────────────
+function gameLoop(ts) {
+    if (gameState !== 'playing' && gameState !== 'finishing') return;
+
+    const dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    timeElapsed += dt;
+
+    // speed: ramp up while playing, decelerate to a slow trot during finishing
+    if (gameState === 'playing') {
+        speed = 320 + timeElapsed * 8;
+    } else {
+        speed = Math.max(90, speed - 280 * dt);
+    }
+
+    // advance distance only while playing
+    if (gameState === 'playing') {
+        const mps = METERS_PER_SECOND * (speed / 320);
+        distanceM += mps * dt;
+
+        // payment milestones
+        const expected = Math.floor(distanceM / 500);
+        if (expected > paymentsMade && paymentsMade < numPayments) {
+            paymentsMade = Math.min(expected, numPayments);
+            const remaining = loanAmount - paymentsMade * paymentAmount;
+            signs.spawn(`-$${paymentAmount} payment!`, `Balance: $${Math.max(0,remaining)}`);
+        }
+
+        // transition to finishing when all meters are run
+        if (distanceM >= totalMeters) {
+            gameState = 'finishing';
+            distanceM = totalMeters;
+            paymentsMade = numPayments;
+            obstacleMgr.list = []; // clear all remaining obstacles
+            finaleSign.spawn();
+        }
+    }
+
+    // finishing: drive the finale billboard; go to win when done
+    if (gameState === 'finishing') {
+        if (finaleSign.update(dt, speed)) { triggerWin(); return; }
+    }
+
+    // update world
+    bg.update(dt, speed);
+    player.update(dt);
+    if (gameState === 'playing') obstacleMgr.update(dt, timeElapsed, speed);
+    signs.update(dt, speed);
+    confetti.update(dt);
+
+    // collision check (playing only)
+    if (gameState === 'playing') {
+        const ph = player.hitbox();
+        for (const o of obstacleMgr.list) {
+            if (overlaps(ph, o.hitbox())) { triggerDeath(); return; }
+        }
+    }
+
+    render();
+    animFrameId = requestAnimationFrame(gameLoop);
+}
+
+function render() {
+    ctx.clearRect(0, 0, W, H);
+    bg.draw();
+    signs.draw();
+    obstacleMgr.draw();
+    finaleSign.draw();
+    player.draw();
+    confetti.draw();
+    if (gameState === 'playing' || gameState === 'finishing') drawHUD();
+}
+
+// ─────────────────────────────────────────────────────────────
+// State transitions
+// ─────────────────────────────────────────────────────────────
+function startGame() {
+    const la = parseFloat(document.getElementById('loanAmount').value);
+    const pa = parseFloat(document.getElementById('paymentAmount').value);
+    if (!la || !pa || la <= 0 || pa <= 0) { alert('Please enter valid amounts.'); return; }
+    if (pa > la) { alert('Payment amount cannot exceed loan amount.'); return; }
+
+    loanAmount    = la;
+    paymentAmount = pa;
+    numPayments   = Math.ceil(la / pa);
+    totalMeters   = numPayments * 500;
+
+    distanceM = 0; paymentsMade = 0; speed = 320; timeElapsed = 0;
+    player.reset(); obstacleMgr.reset(); signs.list = []; confetti.particles = [];
+    finaleSign.reset();
+    bg.init();
+
+    hideAll();
+    gameState = 'playing';
+    lastTime  = performance.now();
+    animFrameId = requestAnimationFrame(gameLoop);
+}
+
+function triggerDeath() {
+    gameState = 'dead';
+    cancelAnimationFrame(animFrameId);
+
+    // death flash
+    ctx.fillStyle = 'rgba(255,60,60,0.35)';
+    ctx.fillRect(0,0,W,H);
+
+    const paid = paymentsMade * paymentAmount;
+    const rem  = loanAmount - paid;
+    document.getElementById('gameOverDetails').innerHTML =
+        `You made <strong>${paymentsMade}</strong> of ${numPayments} payments<br>
+         Amount paid: <strong>$${paid.toLocaleString()}</strong> of $${loanAmount.toLocaleString()}<br>
+         Remaining balance: <strong>$${rem.toLocaleString()}</strong><br>
+         Distance covered: <strong>${Math.floor(distanceM).toLocaleString()}m</strong>`;
+    document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
+function triggerWin() {
+    gameState = 'win';
+    cancelAnimationFrame(animFrameId);
+    distanceM = totalMeters; paymentsMade = numPayments;
+    render();
+
+    document.getElementById('winDetails').innerHTML =
+        `🐕 You ran <strong>${totalMeters.toLocaleString()}m</strong> through Philadelphia!<br>
+         Made all <strong>${numPayments}</strong> payments of $${paymentAmount}<br>
+         Total paid off: <strong>$${loanAmount.toLocaleString()}</strong><br><br>
+         <em style="color:#00e676">Your Perpay loan is fully paid off!</em>`;
+
+    setTimeout(() => document.getElementById('winScreen').classList.remove('hidden'), 600);
+}
+
+function hideAll() {
+    ['startScreen','gameOverScreen','winScreen'].forEach(id =>
+        document.getElementById(id).classList.add('hidden'));
+}
+
+// Buttons
+document.getElementById('startBtn')    .addEventListener('click', startGame);
+document.getElementById('retryBtn')    .addEventListener('click', startGame);
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+    hideAll();
+    document.getElementById('startScreen').classList.remove('hidden');
+});
+
+// ─────────────────────────────────────────────────────────────
+// Idle preview loop
+// ─────────────────────────────────────────────────────────────
+bg.init();
+let idleT = performance.now();
+
+function idleLoop(ts) {
+    if (gameState !== 'idle') return;
+    const dt = Math.min((ts - idleT)/1000, 0.05); idleT = ts;
+
+    bg.update(dt, 200);
+    player.legTimer += dt;
+    if (player.legTimer > 0.1) { player.legFrame ^= 1; player.legTimer = 0; }
+
+    ctx.clearRect(0,0,W,H);
+    bg.draw();
+    player.draw();
+
+    // canvas title overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.fillRect(0, H/2-28, W, 56);
+    ctx.fillStyle = '#3A80FF';
+    ctx.font = 'bold 22px "Arial Black",Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('STREETS OF PHILADELPHIA', W/2, H/2+8);
+    ctx.textAlign = 'left';
+
+    requestAnimationFrame(idleLoop);
+}
+requestAnimationFrame(idleLoop);
+</script>
+</body>
+</html>
