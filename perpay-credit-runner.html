@@ -291,6 +291,7 @@
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 const W = canvas.width;   // 820
+const bgImg = new Image(); bgImg.src = 'perpay_arcade_background.jpg';
 const H = canvas.height;  // 420
 
 const GROUND_Y = 340;
@@ -569,15 +570,13 @@ const bg = {
     },
 
     draw() {
-        const sky=ctx.createLinearGradient(0,0,0,GROUND_Y);
-        sky.addColorStop(0,'#8ba8c8'); sky.addColorStop(1,'#c8d8e8');
-        ctx.fillStyle=sky; ctx.fillRect(0,0,W,GROUND_Y);
-        ctx.save(); ctx.translate(this.farOff,0);
-        for(const b of this.farBldgs) this._drawFar(b);
-        ctx.restore();
-        ctx.save(); ctx.translate(this.nearOff,0);
-        for(const h of this.rowHouses) this._drawRow(h);
-        ctx.restore();
+        if (bgImg.complete && bgImg.naturalWidth > 0) {
+            ctx.drawImage(bgImg, 0, 0, W, GROUND_Y);
+        } else {
+            const sky=ctx.createLinearGradient(0,0,0,GROUND_Y);
+            sky.addColorStop(0,'#8ba8c8'); sky.addColorStop(1,'#c8d8e8');
+            ctx.fillStyle=sky; ctx.fillRect(0,0,W,GROUND_Y);
+        }
         ctx.fillStyle='#b0a898'; ctx.fillRect(0,GROUND_Y,W,22);
         ctx.fillStyle='#8a8070'; ctx.fillRect(0,GROUND_Y+20,W,3);
         ctx.save(); ctx.translate(this.gndOff%110,0);

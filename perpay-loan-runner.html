@@ -232,6 +232,7 @@
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 const W = canvas.width;   // 820
+const bgImg = new Image(); bgImg.src = 'perpay_arcade_background.jpg';
 const H = canvas.height;  // 420
 
 const GROUND_Y = 340;   // y where player feet rest (sidewalk surface)
@@ -677,21 +678,15 @@ const bg = {
     },
 
     draw() {
-        // Sky
-        const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-        sky.addColorStop(0, '#8ba8c8');
-        sky.addColorStop(1, '#c8d8e8');
-        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND_Y);
-
-        // Far buildings
-        ctx.save(); ctx.translate(this.farOff, 0);
-        for (const b of this.farBldgs) this._drawFar(b);
-        ctx.restore();
-
-        // Row houses
-        ctx.save(); ctx.translate(this.nearOff, 0);
-        for (const h of this.rowHouses) this._drawRow(h);
-        ctx.restore();
+        // Background image (Philly pixel art) — fallback to sky gradient if not loaded
+        if (bgImg.complete && bgImg.naturalWidth > 0) {
+            ctx.drawImage(bgImg, 0, 0, W, GROUND_Y);
+        } else {
+            const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+            sky.addColorStop(0, '#8ba8c8');
+            sky.addColorStop(1, '#c8d8e8');
+            ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND_Y);
+        }
 
         // Sidewalk
         ctx.fillStyle = '#b0a898'; ctx.fillRect(0, GROUND_Y, W, 22);
