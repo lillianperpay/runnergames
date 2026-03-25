@@ -220,7 +220,7 @@
 <div id="wrapper">
     <div id="title">📈 PERPAY CREDIT RUNNER 📈</div>
     <canvas id="canvas" width="820" height="420"></canvas>
-    <div id="hint">SPACE / ↑ = JUMP &nbsp;&nbsp;|&nbsp;&nbsp; ↓ = DUCK &nbsp;&nbsp;|&nbsp;&nbsp; Don't crash!</div>
+    <div id="hint">SPACE / ↑ = JUMP &nbsp;&nbsp;|&nbsp;&nbsp; Don't crash!</div>
 </div>
 
 <!-- ── Start Screen ───────────────────────────────────────── -->
@@ -244,8 +244,9 @@
         </div>
 
         <div class="info-text">
-            Every <strong style="color:#fff">500m</strong> you run = <strong style="color:#2ecc71">+30 Credit Score</strong><br>
-            Avoid obstacles and reach <strong style="color:#ffd700">850</strong> to win!
+            Jump over <strong style="color:#ff4444">DEBT</strong> piles and fly through 💵 <strong style="color:#2ecc71">Paychecks</strong> for <strong style="color:#2ecc71">+30</strong><br>
+            Hit a debt pile = <strong style="color:#ff4444">−30</strong> &nbsp;|&nbsp; Score drops to 300 = Game Over<br>
+            Reach <strong style="color:#ffd700">850</strong> to win!
         </div>
 
         <button class="btn" id="startBtn">🏃 START RUNNING!</button>
@@ -255,8 +256,9 @@
 
     <div class="obstacle-guide">
         <div class="obs-item"><span class="obs-icon">🗑️</span><span>Trash Can<br>JUMP</span></div>
-        <div class="obs-item"><span class="obs-icon">🏈</span><span>Football<br>DUCK</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Debt Pile<br>JUMP (−30)</span></div>
         <div class="obs-item"><span class="obs-icon">🚌</span><span>SEPTA Bus<br>JUMP</span></div>
+        <div class="obs-item"><span class="obs-icon">💵</span><span>Paycheck<br>FLY THROUGH (+30)</span></div>
     </div>
 </div>
 
@@ -298,17 +300,16 @@ const GROUND_Y = 340;
 const PLAYER_X = 130;
 
 // Credit score
-const SCORE_START     = 300;
-const SCORE_WIN       = 850;
-const SCORE_GAIN      = 30;
-const METERS_PER_MILE = 500;  // every 500m = +30
+const SCORE_START = 300;
+const SCORE_WIN   = 850;
+const SCORE_GAIN  = 30;
 
 // Runtime state
-let gameState   = 'idle';
-let distanceM   = 0;
-let creditScore = SCORE_START;
-let milestones  = 0;
-let speed       = 320;
+let gameState          = 'idle';
+let distanceM          = 0;
+let creditScore        = SCORE_START;
+let paychecksCollected = 0;
+let speed              = 320;
 let timeElapsed = 0;
 let lastTime    = 0;
 let animFrameId = null;
@@ -457,10 +458,11 @@ function drawDuck(cx, feet) {
 class Obstacle {
     constructor(type) {
         this.type=type; this.active=true;
+        this.hit = false;
         switch(type) {
-            case 'trashcan': this.w=34; this.h=56; this.floatY=0;  break;
-            case 'football': this.w=38; this.h=26; this.floatY=48; break;
-            case 'bus':      this.w=95; this.h=72; this.floatY=0;  break;
+            case 'trashcan': this.w=34; this.h=56; this.floatY=0; break;
+            case 'debt':     this.w=82; this.h=52; this.floatY=0; break;
+            case 'bus':      this.w=95; this.h=72; this.floatY=0; break;
         }
         this.x = W+20;
     }
@@ -470,7 +472,7 @@ class Obstacle {
     draw() {
         switch(this.type) {
             case 'trashcan': drawTrashCan(this.x,GROUND_Y,this.w,this.h); break;
-            case 'football': drawFootball(this.x,this.top(),this.w,this.h); break;
+            case 'debt':     drawDebt(this.x,this.top(),this.w,this.h); break;
             case 'bus':      drawBus(this.x,GROUND_Y,this.w,this.h); break;
         }
     }
@@ -488,15 +490,61 @@ function drawTrashCan(x,gnd,w,h) {
     c.restore();
 }
 
-function drawFootball(x,top,w,h) {
+function drawDebt(x,top,w,h) {
     const c=ctx,cx=x+w/2,cy=top+h/2; c.save();
-    c.fillStyle='rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(cx,GROUND_Y+4,w/2,5,0,0,Math.PI*2); c.fill();
-    c.fillStyle='#6d4c41'; c.beginPath(); c.ellipse(cx,cy,w/2,h/2,0.25,0,Math.PI*2); c.fill();
-    c.strokeStyle='#4e342e'; c.lineWidth=1.5; c.beginPath(); c.moveTo(x+5,cy); c.bezierCurveTo(cx,cy-h/2+2,cx,cy+h/2-2,x+w-5,cy); c.stroke();
-    c.strokeStyle='white'; c.lineWidth=2; c.beginPath(); c.moveTo(cx-7,cy-5); c.lineTo(cx+7,cy-5); c.stroke();
-    for(let i=-5;i<=5;i+=5){c.beginPath(); c.moveTo(cx+i,cy-8); c.lineTo(cx+i,cy-2); c.stroke();}
-    c.strokeStyle='rgba(255,255,255,0.35)'; c.lineWidth=1.5;
-    for(let i=0;i<3;i++){c.beginPath(); c.moveTo(x-8-i*8,cy-5+i*5); c.lineTo(x-1-i*8,cy-3+i*5); c.stroke();}
+    // shadow on ground
+    c.fillStyle='rgba(180,0,0,0.18)'; c.beginPath(); c.ellipse(cx,GROUND_Y+4,w/2,5,0,0,Math.PI*2); c.fill();
+    // glowing background pill
+    c.shadowColor='#ff2222'; c.shadowBlur=20;
+    c.fillStyle='rgba(120,0,0,0.55)';
+    rrect(c,x,top,w,h,8); c.fill();
+    c.strokeStyle='#ff3333'; c.lineWidth=2.5;
+    rrect(c,x,top,w,h,8); c.stroke();
+    // stacked bill lines
+    c.shadowBlur=0;
+    c.strokeStyle='rgba(255,80,80,0.35)'; c.lineWidth=1;
+    for(let i=1;i<4;i++){
+        c.beginPath(); c.moveTo(x+6,top+i*h/4); c.lineTo(x+w-6,top+i*h/4); c.stroke();
+    }
+    // DEBT text
+    c.shadowColor='#ff0000'; c.shadowBlur=14;
+    c.fillStyle='#ff2222'; c.font='bold 26px "Arial Black",Arial'; c.textAlign='center';
+    c.fillText('DEBT',cx,cy+9);
+    c.shadowBlur=0;
+    // dollar signs corners
+    c.fillStyle='rgba(255,80,80,0.8)'; c.font='bold 11px Arial';
+    c.fillText('$',x+5,top+13); c.fillText('$',x+w-13,top+13);
+    c.textAlign='left';
+    c.restore();
+}
+
+function drawPaycheck(x,y,w,h) {
+    const c=ctx,cx=x+w/2; c.save();
+    // glow
+    c.shadowColor='#00e676'; c.shadowBlur=18;
+    // body
+    c.fillStyle='#e8f5e9';
+    rrect(c,x,y,w,h,5); c.fill();
+    c.strokeStyle='#2ecc71'; c.lineWidth=2.5;
+    rrect(c,x,y,w,h,5); c.stroke();
+    c.shadowBlur=0;
+    // header bar
+    c.fillStyle='#2ecc71';
+    c.fillRect(x+2,y+2,w-4,12);
+    rrect(c,x,y,w,14,5); c.fill();
+    // header text
+    c.fillStyle='#fff'; c.font='bold 8px Arial'; c.textAlign='center';
+    c.fillText('PAYCHECK',cx,y+11);
+    // amount
+    c.fillStyle='#1b5e20'; c.font='bold 15px "Arial Black",Arial';
+    c.fillText('+$30',cx,y+h-8);
+    // decorative lines
+    c.strokeStyle='rgba(46,204,113,0.4)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(x+6,y+20); c.lineTo(x+w-6,y+20); c.stroke();
+    c.beginPath(); c.moveTo(x+6,y+27); c.lineTo(x+w*0.6,y+27); c.stroke();
+    c.textAlign='left';
+    c.restore();
+}
     c.restore();
 }
 
@@ -514,6 +562,32 @@ function drawBus(x,gnd,w,h) {
         c.fillStyle='#bbb';    c.beginPath(); c.arc(wx,wy,5,0,Math.PI*2);  c.fill();
     });
     c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Paycheck Powerup
+// ─────────────────────────────────────────────────────────────
+class Powerup {
+    constructor(debtX, debtW) {
+        this.w = 72; this.h = 40;
+        this.x = debtX + debtW/2 - this.w/2;
+        this.y = GROUND_Y - 138; // mid-jump height
+        this.active = true;
+    }
+    update(dt,spd) { this.x -= spd*dt; if(this.x+this.w < -20) this.active=false; }
+    hitbox() { return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+    draw() {
+        if(!this.active) return;
+        drawPaycheck(this.x,this.y,this.w,this.h);
+        // pulsing ring
+        const pulse = 0.5+0.5*Math.sin(Date.now()*0.006);
+        ctx.save();
+        ctx.strokeStyle=`rgba(46,204,113,${0.3+0.3*pulse})`;
+        ctx.lineWidth=2+pulse*3;
+        rrect(ctx,this.x-4,this.y-4,this.w+8,this.h+8,9);
+        ctx.stroke();
+        ctx.restore();
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -694,8 +768,8 @@ function drawArtMuseum(bx,bw,bh) {
 // ─────────────────────────────────────────────────────────────
 const signs = {
     list: [],
-    spawn(newScore) {
-        this.list.push({ x:W+60, newScore, alpha:1.0 });
+    spawn(newScore, delta) {
+        this.list.push({ x:W+60, newScore, delta: delta===undefined ? SCORE_GAIN : delta, alpha:1.0 });
     },
     update(dt,spd) {
         for(const s of this.list) {
@@ -707,13 +781,17 @@ const signs = {
     draw() {
         for(const s of this.list) {
             const alpha=Math.max(0,s.alpha);
+            const pos = s.delta >= 0;
             ctx.save(); ctx.globalAlpha=alpha;
             const sx=s.x, sy=GROUND_Y-168;
             ctx.fillStyle='#888'; ctx.fillRect(sx-1,sy+62,3,GROUND_Y-sy-62);
-            ctx.fillStyle='#0a2a12'; ctx.strokeStyle='#2ecc71'; ctx.lineWidth=2.5;
+            ctx.fillStyle=pos?'#0a2a12':'#2a0a0a';
+            ctx.strokeStyle=pos?'#2ecc71':'#ff4444';
+            ctx.lineWidth=2.5;
             rrect(ctx,sx-120,sy,240,62,10); ctx.fill(); ctx.stroke();
-            ctx.fillStyle='#2ecc71'; ctx.textAlign='center';
-            ctx.font='bold 22px "Arial Black",Arial'; ctx.fillText('+30 CREDIT SCORE!',sx,sy+28);
+            ctx.fillStyle=pos?'#2ecc71':'#ff4444'; ctx.textAlign='center';
+            ctx.font='bold 22px "Arial Black",Arial';
+            ctx.fillText(pos?'+30 CREDIT SCORE!':'−30 CREDIT SCORE',sx,sy+28);
             ctx.fillStyle='#fff'; ctx.font='14px Arial';
             ctx.fillText(`Score: ${s.newScore} / 850`,sx,sy+48);
             ctx.textAlign='left';
@@ -796,8 +874,8 @@ const finaleSign = {
 // Obstacle Manager
 // ─────────────────────────────────────────────────────────────
 const obstacleMgr = {
-    list:[], nextSpawnT:0,
-    reset() { this.list=[]; this.nextSpawnT=1.8; },
+    list:[], powerups:[], nextSpawnT:0,
+    reset() { this.list=[]; this.powerups=[]; this.nextSpawnT=1.8; },
     update(dt,t,spd) {
         if(t>=this.nextSpawnT) {
             this._spawn();
@@ -806,12 +884,20 @@ const obstacleMgr = {
         }
         for(const o of this.list) o.update(dt,spd);
         this.list=this.list.filter(o=>o.active);
+        for(const p of this.powerups) p.update(dt,spd);
+        this.powerups=this.powerups.filter(p=>p.active);
     },
     _spawn() {
         const r=Math.random();
-        this.list.push(new Obstacle(r<0.38?'trashcan':r<0.72?'football':'bus'));
+        const type=r<0.38?'trashcan':r<0.72?'debt':'bus';
+        const obs=new Obstacle(type);
+        this.list.push(obs);
+        if(type==='debt') this.powerups.push(new Powerup(obs.x,obs.w));
     },
-    draw() { for(const o of this.list) o.draw(); }
+    draw() {
+        for(const o of this.list) o.draw();
+        for(const p of this.powerups) p.draw();
+    }
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -826,9 +912,7 @@ function scoreColor(s) {
 }
 
 function drawHUD() {
-    const progress  = Math.min(1,(creditScore-SCORE_START)/(SCORE_WIN-SCORE_START));
-    const nextAt    = (milestones+1)*METERS_PER_MILE;
-    const toNext    = Math.max(0, nextAt-distanceM);
+    const progress = Math.min(1,(creditScore-SCORE_START)/(SCORE_WIN-SCORE_START));
 
     ctx.fillStyle='rgba(0,0,0,0.54)';
     rrect(ctx,8,8,W-16,54,8); ctx.fill();
@@ -860,7 +944,7 @@ function drawHUD() {
     ctx.textAlign='left';
 
     ctx.fillStyle='#aaa'; ctx.font='12px Arial'; ctx.textAlign='right';
-    ctx.fillText(`+30 pts in: ${Math.ceil(toNext)}m`,W-18,28);
+    ctx.fillText(`💵 Paychecks: ${paychecksCollected}`,W-18,28);
     ctx.fillText(`Goal: 850`,W-18,46);
     ctx.textAlign='left';
 }
@@ -1127,21 +1211,6 @@ function gameLoop(ts) {
     if(gameState==='playing') {
         speed = 320 + timeElapsed*8;
         distanceM += METERS_PER_SECOND*(speed/320)*dt;
-
-        // milestone check
-        const expected=Math.floor(distanceM/METERS_PER_MILE);
-        if(expected>milestones) {
-            milestones=expected;
-            creditScore=Math.min(SCORE_WIN, SCORE_START + milestones*SCORE_GAIN);
-            signs.spawn(creditScore);
-        }
-
-        // win condition
-        if(creditScore >= SCORE_WIN) {
-            gameState='finishing';
-            obstacleMgr.list=[];
-            finaleSign.spawn();
-        }
     } else {
         speed=Math.max(90, speed-280*dt);
         if(finaleSign.update(dt,speed)) { triggerWin(); return; }
@@ -1155,8 +1224,30 @@ function gameLoop(ts) {
 
     if(gameState==='playing') {
         const ph=player.hitbox();
-        for(const o of obstacleMgr.list)
-            if(overlaps(ph,o.hitbox())) { triggerDeath(); return; }
+        for(const o of obstacleMgr.list) {
+            if(!overlaps(ph,o.hitbox())) continue;
+            if(o.type==='debt' && !o.hit) {
+                o.hit=true; o.active=false;
+                creditScore -= SCORE_GAIN;
+                signs.spawn(creditScore, -SCORE_GAIN);
+                if(creditScore < SCORE_START) { triggerDeath(); return; }
+            } else if(o.type!=='debt') {
+                triggerDeath(); return;
+            }
+        }
+        for(const p of obstacleMgr.powerups) {
+            if(!p.active || !overlaps(ph,p.hitbox())) continue;
+            p.active=false;
+            paychecksCollected++;
+            creditScore=Math.min(SCORE_WIN, creditScore+SCORE_GAIN);
+            signs.spawn(creditScore, SCORE_GAIN);
+            if(creditScore >= SCORE_WIN) {
+                gameState='finishing';
+                obstacleMgr.list=[]; obstacleMgr.powerups=[];
+                finaleSign.spawn();
+                return;
+            }
+        }
     }
 
     render();
@@ -1178,7 +1269,7 @@ function render() {
 // State transitions
 // ─────────────────────────────────────────────────────────────
 function startGame() {
-    distanceM=0; creditScore=SCORE_START; milestones=0; speed=320; timeElapsed=0;
+    distanceM=0; creditScore=SCORE_START; paychecksCollected=0; speed=320; timeElapsed=0;
     player.reset(); obstacleMgr.reset(); signs.list=[]; confetti.particles=[];
     finaleSign.reset(); bg.init();
     hideAll();
@@ -1192,9 +1283,10 @@ function triggerDeath() {
     ctx.fillStyle='rgba(255,60,60,0.35)'; ctx.fillRect(0,0,W,H);
 
     document.getElementById('gameOverDetails').innerHTML =
-        `Distance ran: <strong>${Math.floor(distanceM).toLocaleString()}m</strong><br>
-         Credit score: <strong style="color:${scoreColor(creditScore)}">${creditScore}</strong><br>
-         Score gained: <strong>+${creditScore-SCORE_START} pts</strong>`;
+        `Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
+         Final credit score: <strong style="color:${scoreColor(creditScore)}">${creditScore}</strong><br>
+         ${creditScore < SCORE_START ? '<strong style="color:#ff4444">Score dropped below 300 — crushed by debt!</strong>' : 'Crashed into an obstacle!'}`;
+
     document.getElementById('gameOverScreen').classList.remove('hidden');
     // clear previous delta
     document.getElementById('gaugeDeltaDeath').innerHTML='';
@@ -1207,7 +1299,7 @@ function triggerWin() {
     distanceM=Math.max(distanceM,0); creditScore=SCORE_WIN;
     render();
     document.getElementById('winDetails').innerHTML =
-        `Distance ran: <strong>${Math.floor(distanceM).toLocaleString()}m</strong><br>
+        `Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
          Final credit score: <strong style="color:#27ae60">850</strong> — Exceptional!<br>
          Score gained: <strong style="color:#2ecc71">+${SCORE_WIN-SCORE_START} pts</strong>`;
     document.getElementById('gaugeDeltaWin').innerHTML='';
