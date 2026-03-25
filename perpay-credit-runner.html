@@ -305,7 +305,6 @@ const SCORE_GAIN  = 30;
 
 // Runtime state
 let gameState          = 'idle';
-let distanceM          = 0;
 let creditScore        = SCORE_START;
 let paychecksCollected = 0;
 let houseNotifShown    = false;
@@ -971,7 +970,6 @@ function drawHUD() {
     ctx.fillStyle='#555'; ctx.font='10px Arial'; ctx.textAlign='center';
     ctx.fillText(`${SCORE_START}`,bx,by+bh+12);
     ctx.fillText('850',bx+bw,by+bh+12);
-    ctx.fillText(`${Math.floor(distanceM).toLocaleString()} m`,bx+bw/2,by+bh+12);
     ctx.textAlign='left';
 
     ctx.fillStyle='#aaa'; ctx.font='12px Arial'; ctx.textAlign='right';
@@ -1176,7 +1174,6 @@ function gameLoop(ts) {
 
     if(gameState==='playing') {
         speed = 320 + timeElapsed*8;
-        distanceM += METERS_PER_SECOND*(speed/320)*dt;
     } else {
         speed=Math.max(90, speed-280*dt);
         if(finaleSign.update(dt,speed)) { triggerWin(); return; }
@@ -1239,7 +1236,7 @@ function render() {
 // State transitions
 // ─────────────────────────────────────────────────────────────
 function startGame() {
-    distanceM=0; creditScore=SCORE_START; paychecksCollected=0; speed=320; timeElapsed=0;
+    creditScore=SCORE_START; paychecksCollected=0; speed=320; timeElapsed=0;
     player.reset(); obstacleMgr.reset(); signs.list=[]; confetti.particles=[];
     finaleSign.reset(); spendingNotif.active=false; houseNotif.active=false; houseNotifShown=false; bg.init();
     hideAll();
@@ -1265,7 +1262,6 @@ function triggerDeath() {
 function triggerWin() {
     gameState='win';
     cancelAnimationFrame(animFrameId);
-    distanceM=Math.max(distanceM,0); creditScore=SCORE_WIN;
     render();
     document.getElementById('winDetails').innerHTML =
         `Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
