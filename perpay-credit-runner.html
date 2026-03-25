@@ -232,7 +232,7 @@
         <div style="display:flex; align-items:center; gap:20px;">
             <div class="score-start-box">
                 <span class="label">STARTING SCORE</span>
-                <span class="big-num">300</span>
+                <span class="big-num">460</span>
                 <span class="sub">Fair Credit</span>
             </div>
             <div class="score-arrow">→</div>
@@ -255,9 +255,7 @@
     </div>
 
     <div class="obstacle-guide">
-        <div class="obs-item"><span class="obs-icon">🗑️</span><span>Trash Can<br>JUMP</span></div>
-        <div class="obs-item"><span class="obs-icon">💸</span><span>Debt Pile<br>JUMP (−30)</span></div>
-        <div class="obs-item"><span class="obs-icon">🚌</span><span>SEPTA Bus<br>JUMP</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Debt Pile<br>JUMP OVER (−30)</span></div>
         <div class="obs-item"><span class="obs-icon">💵</span><span>Paycheck<br>FLY THROUGH (+30)</span></div>
     </div>
 </div>
@@ -300,7 +298,8 @@ const GROUND_Y = 340;
 const PLAYER_X = 130;
 
 // Credit score
-const SCORE_START = 300;
+const SCORE_START = 460;
+const SCORE_FLOOR = 300;
 const SCORE_WIN   = 850;
 const SCORE_GAIN  = 30;
 
@@ -309,6 +308,7 @@ let gameState          = 'idle';
 let distanceM          = 0;
 let creditScore        = SCORE_START;
 let paychecksCollected = 0;
+let houseNotifShown    = false;
 let speed              = 320;
 let timeElapsed = 0;
 let lastTime    = 0;
@@ -459,36 +459,17 @@ class Obstacle {
     constructor(type) {
         this.type=type; this.active=true;
         this.hit = false;
-        switch(type) {
-            case 'trashcan': this.w=34; this.h=56; this.floatY=0; break;
-            case 'debt':     this.w=82; this.h=52; this.floatY=0; break;
-            case 'bus':      this.w=95; this.h=72; this.floatY=0; break;
-        }
+        this.w=82; this.h=52; this.floatY=0; // only 'debt' type remains
         this.x = W+20;
     }
     update(dt,spd) { this.x-=spd*dt; if(this.x+this.w<-20) this.active=false; }
     top()    { return GROUND_Y-this.h-this.floatY; }
     hitbox() { const p=5; return {x:this.x+p, y:this.top()+p, w:this.w-p*2, h:this.h-p*2}; }
     draw() {
-        switch(this.type) {
-            case 'trashcan': drawTrashCan(this.x,GROUND_Y,this.w,this.h); break;
-            case 'debt':     drawDebt(this.x,this.top(),this.w,this.h); break;
-            case 'bus':      drawBus(this.x,GROUND_Y,this.w,this.h); break;
-        }
+        drawDebt(this.x,this.top(),this.w,this.h);
     }
 }
 
-function drawTrashCan(x,gnd,w,h) {
-    const c=ctx,top=gnd-h,cx=x+w/2; c.save();
-    c.fillStyle='#546e7a'; c.fillRect(x+2,top+12,w-4,h-12);
-    c.strokeStyle='#455a64'; c.lineWidth=1.5;
-    for(let i=1;i<3;i++){const ly=top+12+(h-12)*i/3; c.beginPath(); c.moveTo(x+2,ly); c.lineTo(x+w-2,ly); c.stroke();}
-    c.fillStyle='#37474f'; c.fillRect(x-3,top,w+6,14);
-    c.strokeStyle='#263238'; c.lineWidth=3; c.beginPath(); c.arc(cx,top,9,Math.PI,0); c.stroke();
-    c.fillStyle='#1a1a1a';
-    [[x+7,gnd+3],[x+w-7,gnd+3]].forEach(([wx,wy])=>{c.beginPath(); c.arc(wx,wy,5,0,Math.PI*2); c.fill();});
-    c.restore();
-}
 
 function drawDebt(x,top,w,h) {
     const c=ctx,cx=x+w/2,cy=top+h/2; c.save();
@@ -511,10 +492,7 @@ function drawDebt(x,top,w,h) {
     c.fillStyle='#ff2222'; c.font='bold 26px "Arial Black",Arial'; c.textAlign='center';
     c.fillText('DEBT',cx,cy+9);
     c.shadowBlur=0;
-    // dollar signs corners
-    c.fillStyle='rgba(255,80,80,0.8)'; c.font='bold 11px Arial';
-    c.fillText('$',x+5,top+13); c.fillText('$',x+w-13,top+13);
-    c.textAlign='left';
+
     c.restore();
 }
 
@@ -546,33 +524,22 @@ function drawPaycheck(x,y,w,h) {
     c.restore();
 }
 
-function drawBus(x,gnd,w,h) {
-    const c=ctx,top=gnd-h; c.save();
-    c.fillStyle='#1565c0'; c.fillRect(x,top,w,h-12);
-    c.fillStyle='#0d47a1'; c.fillRect(x+w-14,top+6,14,h-18);
-    c.fillStyle='#cfe8ff';
-    for(let i=0;i<3;i++) c.fillRect(x+6+i*24,top+10,18,18);
-    c.fillRect(x+w-11,top+10,9,18);
-    c.fillStyle='white'; c.font='bold 9px Arial'; c.fillText('SEPTA',x+8,top+h-20);
-    c.fillStyle='#ff8f00'; c.fillRect(x,top+h-26,w-14,4);
-    [[x+16,gnd+3],[x+w-18,gnd+3]].forEach(([wx,wy])=>{
-        c.fillStyle='#1a1a1a'; c.beginPath(); c.arc(wx,wy,11,0,Math.PI*2); c.fill();
-        c.fillStyle='#bbb';    c.beginPath(); c.arc(wx,wy,5,0,Math.PI*2);  c.fill();
-    });
-    c.restore();
-}
 
 // ─────────────────────────────────────────────────────────────
 // Paycheck Powerup
 // ─────────────────────────────────────────────────────────────
 class Powerup {
-    constructor(debtX, debtW) {
+    constructor(debtX, debtW, debtObs) {
         this.w = 72; this.h = 40;
         this.x = debtX + debtW/2 - this.w/2;
         this.y = GROUND_Y - 138; // mid-jump height
         this.active = true;
+        this.debt = debtObs; // linked debt obstacle
     }
-    update(dt,spd) { this.x -= spd*dt; if(this.x+this.w < -20) this.active=false; }
+    update(dt,spd) {
+        if(this.debt && this.debt.hit) { this.active=false; return; }
+        this.x -= spd*dt; if(this.x+this.w < -20) this.active=false;
+    }
     hitbox() { return {x:this.x, y:this.y, w:this.w, h:this.h}; }
     draw() {
         if(!this.active) return;
@@ -808,6 +775,74 @@ function rrect(c,x,y,w,h,r) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Spending Limit Notification
+// ─────────────────────────────────────────────────────────────
+const spendingNotif = {
+    active:false, alpha:0, timer:0, DURATION:3.5,
+    trigger() { if(this.active) return; this.active=true; this.timer=0; },
+    update(dt) {
+        if(!this.active) return;
+        this.timer+=dt;
+        const t=this.timer;
+        if(t<0.4)                         this.alpha=t/0.4;
+        else if(t>this.DURATION-0.7)      this.alpha=Math.max(0,(this.DURATION-t)/0.7);
+        else                               this.alpha=1;
+        if(this.timer>=this.DURATION)      { this.active=false; this.alpha=0; }
+    },
+    draw() {
+        if(!this.active||this.alpha<=0) return;
+        ctx.save(); ctx.globalAlpha=this.alpha;
+        const cx=W/2, cy=120;
+        ctx.shadowColor='#ffd700'; ctx.shadowBlur=24;
+        ctx.fillStyle='rgba(10,20,5,0.92)';
+        rrect(ctx,cx-210,cy-36,420,72,14); ctx.fill();
+        ctx.strokeStyle='#ffd700'; ctx.lineWidth=2.5;
+        rrect(ctx,cx-210,cy-36,420,72,14); ctx.stroke();
+        ctx.shadowBlur=0;
+        ctx.fillStyle='#ffd700'; ctx.font='bold 16px "Arial Black",Arial'; ctx.textAlign='center';
+        ctx.fillText('💳  YOUR SPENDING LIMIT HAS INCREASED!  💳',cx,cy-8);
+        ctx.fillStyle='#2ecc71'; ctx.font='13px Arial';
+        ctx.fillText('Keep collecting paychecks to reach 850!',cx,cy+16);
+        ctx.textAlign='left';
+        ctx.restore();
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
+// House Qualification Notification
+// ─────────────────────────────────────────────────────────────
+const houseNotif = {
+    active:false, alpha:0, timer:0, DURATION:4.0,
+    trigger() { if(this.active) return; this.active=true; this.timer=0; confetti.burst(); },
+    update(dt) {
+        if(!this.active) return;
+        this.timer+=dt;
+        const t=this.timer;
+        if(t<0.4)                        this.alpha=t/0.4;
+        else if(t>this.DURATION-0.8)     this.alpha=Math.max(0,(this.DURATION-t)/0.8);
+        else                              this.alpha=1;
+        if(this.timer>=this.DURATION)     { this.active=false; this.alpha=0; }
+    },
+    draw() {
+        if(!this.active||this.alpha<=0) return;
+        ctx.save(); ctx.globalAlpha=this.alpha;
+        const cx=W/2, cy=120;
+        ctx.shadowColor='#00bfa5'; ctx.shadowBlur=28;
+        ctx.fillStyle='rgba(0,20,18,0.93)';
+        rrect(ctx,cx-250,cy-42,500,84,14); ctx.fill();
+        ctx.strokeStyle='#00bfa5'; ctx.lineWidth=2.5;
+        rrect(ctx,cx-250,cy-42,500,84,14); ctx.stroke();
+        ctx.shadowBlur=0;
+        ctx.fillStyle='#00e5cc'; ctx.font='bold 17px "Arial Black",Arial'; ctx.textAlign='center';
+        ctx.fillText('🏠  Congrats — you now qualify to buy a house!  🏠',cx,cy-10);
+        ctx.fillStyle='#80cbc4'; ctx.font='13px Arial';
+        ctx.fillText('Credit score 640 reached — a major milestone!',cx,cy+16);
+        ctx.textAlign='left';
+        ctx.restore();
+    }
+};
+
+// ─────────────────────────────────────────────────────────────
 // Finale Billboard
 // ─────────────────────────────────────────────────────────────
 const finaleSign = {
@@ -886,11 +921,9 @@ const obstacleMgr = {
         this.powerups=this.powerups.filter(p=>p.active);
     },
     _spawn() {
-        const r=Math.random();
-        const type=r<0.38?'trashcan':r<0.72?'debt':'bus';
-        const obs=new Obstacle(type);
+        const obs=new Obstacle('debt');
         this.list.push(obs);
-        if(type==='debt') this.powerups.push(new Powerup(obs.x,obs.w));
+        this.powerups.push(new Powerup(obs.x,obs.w,obs));
     },
     draw() {
         for(const o of this.list) o.draw();
@@ -936,7 +969,7 @@ function drawHUD() {
     }
     // 850 label at end
     ctx.fillStyle='#555'; ctx.font='10px Arial'; ctx.textAlign='center';
-    ctx.fillText('300',bx,by+bh+12);
+    ctx.fillText(`${SCORE_START}`,bx,by+bh+12);
     ctx.fillText('850',bx+bw,by+bh+12);
     ctx.fillText(`${Math.floor(distanceM).toLocaleString()} m`,bx+bw/2,by+bh+12);
     ctx.textAlign='left';
@@ -1028,13 +1061,13 @@ function scoreToAngle(s) {
     return Math.PI + Math.PI * (s - 300) / 550;
 }
 
-function drawGaugeFrame(gc, gW, gH, currentScore, startScore, animDone) {
+function drawGaugeFrame(gc, gW, gH, currentScore) {
     const cx=gW/2, cy=gH-28;
-    const Ro=148, Ri=116; // outer and inner radius of arc band
+    const Ro=148, Ri=116;
 
     gc.clearRect(0,0,gW,gH);
 
-    // ── dark arc background ──
+    // dark arc background
     gc.beginPath();
     gc.arc(cx,cy,Ro,Math.PI,2*Math.PI,false);
     gc.arc(cx,cy,Ri,2*Math.PI,Math.PI,true);
@@ -1042,22 +1075,19 @@ function drawGaugeFrame(gc, gW, gH, currentScore, startScore, animDone) {
     gc.fillStyle='#111827';
     gc.fill();
 
-    // ── color zone segments ──
+    // dim zone segments
     for(const z of SCORE_ZONES) {
         const sa=scoreToAngle(z.min), ea=scoreToAngle(z.max);
         gc.beginPath();
         gc.arc(cx,cy,Ro,sa,ea,false);
         gc.arc(cx,cy,Ri,ea,sa,true);
         gc.closePath();
-        gc.fillStyle=z.color+'50'; // dim background
+        gc.fillStyle=z.color+'50';
         gc.fill();
     }
 
-    // ── active filled portion (300 → currentScore) ──
-    const activeStart = scoreToAngle(SCORE_START);
-    const activeEnd   = scoreToAngle(Math.max(SCORE_START, currentScore));
+    // active filled portion (SCORE_START → currentScore)
     if(currentScore > SCORE_START) {
-        // color each filled zone portion
         for(const z of SCORE_ZONES) {
             const lo=Math.max(z.min, SCORE_START), hi=Math.min(z.max, currentScore);
             if(lo>=hi) continue;
@@ -1071,13 +1101,13 @@ function drawGaugeFrame(gc, gW, gH, currentScore, startScore, animDone) {
         }
     }
 
-    // ── arc border ──
+    // arc borders
     gc.beginPath(); gc.arc(cx,cy,Ro,Math.PI,2*Math.PI,false);
     gc.strokeStyle='#334'; gc.lineWidth=1; gc.stroke();
     gc.beginPath(); gc.arc(cx,cy,Ri,Math.PI,2*Math.PI,false);
     gc.strokeStyle='#334'; gc.lineWidth=1; gc.stroke();
 
-    // ── tick marks at zone boundaries + start/end ──
+    // tick marks (no labels)
     const ticks=[300,580,670,740,800,850];
     gc.strokeStyle='#556'; gc.lineWidth=2;
     for(const t of ticks) {
@@ -1086,29 +1116,9 @@ function drawGaugeFrame(gc, gW, gH, currentScore, startScore, animDone) {
         gc.moveTo(cx+(Ri-4)*Math.cos(a), cy+(Ri-4)*Math.sin(a));
         gc.lineTo(cx+(Ro+6)*Math.cos(a), cy+(Ro+6)*Math.sin(a));
         gc.stroke();
-        // tick label
-        const lx=cx+(Ro+20)*Math.cos(a), ly=cy+(Ro+20)*Math.sin(a);
-        gc.fillStyle='#667'; gc.font='10px Arial'; gc.textAlign='center';
-        gc.fillText(t,lx,ly+3);
     }
 
-    // ── zone labels (along arc midpoints) ──
-    for(const z of SCORE_ZONES) {
-        const mid=(z.min+z.max)/2;
-        const a=scoreToAngle(mid);
-        const lr=(Ro+Ri)/2;
-        const lx=cx+lr*Math.cos(a), ly=cy+lr*Math.sin(a);
-        gc.save();
-        gc.translate(lx,ly);
-        gc.rotate(a - Math.PI*1.5 + Math.PI); // rotate label tangent to arc
-        gc.fillStyle=z.color+'cc';
-        gc.font='bold 8px Arial';
-        gc.textAlign='center';
-        gc.fillText(z.label,0,3);
-        gc.restore();
-    }
-
-    // ── start marker (300) ──
+    // start marker dashed line
     const startA=scoreToAngle(SCORE_START);
     gc.strokeStyle='rgba(255,255,255,0.6)'; gc.lineWidth=2; gc.setLineDash([3,3]);
     gc.beginPath();
@@ -1116,84 +1126,42 @@ function drawGaugeFrame(gc, gW, gH, currentScore, startScore, animDone) {
     gc.lineTo(cx+(Ro+8)*Math.cos(startA), cy+(Ro+8)*Math.sin(startA));
     gc.stroke(); gc.setLineDash([]);
 
-    // ── needle ──
+    // needle — drawn pointing up (-y), so rotate by (needleA - 3π/2) to aim at angle needleA
     const needleA=scoreToAngle(Math.max(300, Math.min(850, currentScore)));
     const needleLen=Ri-6;
     gc.save();
     gc.translate(cx,cy);
-    gc.rotate(needleA);
-    // needle body
+    gc.rotate(needleA - Math.PI * 1.5);
     gc.fillStyle='#fff';
     gc.beginPath();
     gc.moveTo(-2,0); gc.lineTo(2,0);
     gc.lineTo(1,-needleLen); gc.lineTo(-1,-needleLen);
     gc.closePath(); gc.fill();
-    // needle base circle
     gc.beginPath(); gc.arc(0,0,9,0,Math.PI*2);
     gc.fillStyle='#222'; gc.fill();
     gc.beginPath(); gc.arc(0,0,6,0,Math.PI*2);
     gc.fillStyle='#fff'; gc.fill();
     gc.restore();
-
-    // ── center score display ──
-    const dispScore=Math.round(currentScore);
-    const zoneNow=SCORE_ZONES.slice().reverse().find(z=>dispScore>=z.min) || SCORE_ZONES[0];
-
-    gc.textAlign='center';
-    gc.fillStyle=zoneNow.color;
-    gc.font='bold 40px "Arial Black",Arial';
-    gc.fillText(dispScore, cx, cy-18);
-
-    gc.fillStyle='#888'; gc.font='11px Arial';
-    gc.fillText('CREDIT SCORE', cx, cy-3);
-
-    gc.fillStyle=zoneNow.color; gc.font='bold 11px Arial';
-    gc.fillText(zoneNow.label, cx, cy+12);
-
-    // ── delta label (shows when animation done) ──
-    if(animDone && currentScore > SCORE_START) {
-        const delta=Math.round(currentScore-SCORE_START);
-        gc.fillStyle='#2ecc71'; gc.font='bold 13px Arial';
-        gc.fillText(`+${delta} from start (${SCORE_START})`, cx, cy+26);
-    }
-
-    gc.textAlign='left';
 }
 
-function animateGauge(canvasId, deltaId, endScore) {
+function animateGauge(canvasId, endScore) {
     const gc2  = document.getElementById(canvasId);
     const gCtx = gc2.getContext('2d');
     const gW   = gc2.width, gH = gc2.height;
     const DURATION = 2.4;
-    let elapsed = 0, lastT = performance.now(), done = false;
+    let elapsed = 0, lastT = performance.now();
 
     function tick(ts) {
         const dt = Math.min((ts - lastT)/1000, 0.05);
         lastT = ts;
         elapsed += dt;
         const t = Math.min(1, elapsed / DURATION);
-        // ease-out cubic
         const eased = 1 - Math.pow(1 - t, 3);
         const current = SCORE_START + (endScore - SCORE_START) * eased;
-        done = (t >= 1);
-        drawGaugeFrame(gCtx, gW, gH, current, SCORE_START, done);
-
-        if(!done) {
-            requestAnimationFrame(tick);
-        } else {
-            // update delta text below gauge
-            const deltaEl = document.getElementById(deltaId);
-            if(deltaEl) {
-                const gained = Math.round(endScore - SCORE_START);
-                const zoneNow = SCORE_ZONES.slice().reverse().find(z=>endScore>=z.min)||SCORE_ZONES[0];
-                deltaEl.innerHTML = gained > 0
-                    ? `<span class="delta-pos">+${gained} points</span> &nbsp;·&nbsp; Started: ${SCORE_START} &nbsp;·&nbsp; Final: <span class="delta-pos">${Math.round(endScore)}</span> &nbsp;·&nbsp; <span style="color:${zoneNow.color}">${zoneNow.label}</span>`
-                    : `<span class="delta-neg">No score gained — try again!</span>`;
-            }
-        }
+        drawGaugeFrame(gCtx, gW, gH, current);
+        if(t < 1) requestAnimationFrame(tick);
     }
-    // draw initial static frame
-    drawGaugeFrame(gCtx, gW, gH, SCORE_START, SCORE_START, false);
+    drawGaugeFrame(gCtx, gW, gH, SCORE_START);
     requestAnimationFrame(tick);
 }
 
@@ -1218,32 +1186,34 @@ function gameLoop(ts) {
     player.update(dt);
     if(gameState==='playing') obstacleMgr.update(dt,timeElapsed,speed);
     signs.update(dt,speed);
+    spendingNotif.update(dt);
+    houseNotif.update(dt);
     confetti.update(dt);
 
     if(gameState==='playing') {
         const ph=player.hitbox();
         for(const o of obstacleMgr.list) {
             if(!overlaps(ph,o.hitbox())) continue;
-            if(o.type==='debt' && !o.hit) {
+            if(!o.hit) {
                 o.hit=true; o.active=false;
                 creditScore -= SCORE_GAIN;
                 signs.spawn(creditScore, -SCORE_GAIN);
-                if(creditScore < SCORE_START) { triggerDeath(); return; }
-            } else if(o.type!=='debt') {
-                triggerDeath(); return;
+                if(creditScore < SCORE_FLOOR) { triggerDeath(); return; }
             }
         }
         for(const p of obstacleMgr.powerups) {
-            if(!p.active || !overlaps(ph,p.hitbox())) continue;
+            if(!p.active || (p.debt && p.debt.hit) || !overlaps(ph,p.hitbox())) continue;
             p.active=false;
             paychecksCollected++;
             creditScore=Math.min(SCORE_WIN, creditScore+SCORE_GAIN);
             signs.spawn(creditScore, SCORE_GAIN);
+            if(paychecksCollected===4) spendingNotif.trigger();
+            if(creditScore>=640 && !houseNotifShown) { houseNotifShown=true; houseNotif.trigger(); }
             if(creditScore >= SCORE_WIN) {
                 gameState='finishing';
                 obstacleMgr.list=[]; obstacleMgr.powerups=[];
                 finaleSign.spawn();
-                return;
+                break;
             }
         }
     }
@@ -1256,6 +1226,8 @@ function render() {
     ctx.clearRect(0,0,W,H);
     bg.draw();
     signs.draw();
+    spendingNotif.draw();
+    houseNotif.draw();
     obstacleMgr.draw();
     finaleSign.draw();
     player.draw();
@@ -1269,7 +1241,7 @@ function render() {
 function startGame() {
     distanceM=0; creditScore=SCORE_START; paychecksCollected=0; speed=320; timeElapsed=0;
     player.reset(); obstacleMgr.reset(); signs.list=[]; confetti.particles=[];
-    finaleSign.reset(); bg.init();
+    finaleSign.reset(); spendingNotif.active=false; houseNotif.active=false; houseNotifShown=false; bg.init();
     hideAll();
     gameState='playing'; lastTime=performance.now();
     animFrameId=requestAnimationFrame(gameLoop);
@@ -1287,8 +1259,7 @@ function triggerDeath() {
 
     document.getElementById('gameOverScreen').classList.remove('hidden');
     // clear previous delta
-    document.getElementById('gaugeDeltaDeath').innerHTML='';
-    animateGauge('gaugeCanvasDeath','gaugeDeltaDeath', creditScore);
+    animateGauge('gaugeCanvasDeath', creditScore);
 }
 
 function triggerWin() {
@@ -1300,10 +1271,9 @@ function triggerWin() {
         `Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
          Final credit score: <strong style="color:#27ae60">850</strong> — Exceptional!<br>
          Score gained: <strong style="color:#2ecc71">+${SCORE_WIN-SCORE_START} pts</strong>`;
-    document.getElementById('gaugeDeltaWin').innerHTML='';
     setTimeout(()=>{
         document.getElementById('winScreen').classList.remove('hidden');
-        animateGauge('gaugeCanvasWin','gaugeDeltaWin', SCORE_WIN);
+        animateGauge('gaugeCanvasWin', SCORE_WIN);
     }, 500);
 }
 
