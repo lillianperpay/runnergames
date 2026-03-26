@@ -220,7 +220,7 @@
 <div id="wrapper">
     <div id="title">📈 PERPAY CREDIT RUNNER 📈</div>
     <canvas id="canvas" width="820" height="420"></canvas>
-    <div id="hint">SPACE / ↑ = JUMP &nbsp;&nbsp;|&nbsp;&nbsp; Don't crash!</div>
+    <div id="hint">SPACE / ↑ = JUMP &nbsp;&nbsp;|&nbsp;&nbsp; ↓ = DUCK &nbsp;&nbsp;|&nbsp;&nbsp; Don't crash!</div>
 </div>
 
 <!-- ── Start Screen ───────────────────────────────────────── -->
@@ -244,9 +244,9 @@
         </div>
 
         <div class="info-text">
-            Jump over <strong style="color:#ff4444">DEBT</strong> piles and fly through 💵 <strong style="color:#2ecc71">Paychecks</strong> for <strong style="color:#2ecc71">+30</strong><br>
-            Hit a debt pile = <strong style="color:#ff4444">−30</strong> &nbsp;|&nbsp; Score drops to 300 = Game Over<br>
-            Reach <strong style="color:#ffd700">850</strong> to win!
+            Jump over <strong style="color:#ff4444">ground DEBT</strong> &nbsp;|&nbsp; Duck under <strong style="color:#ff4444">aerial DEBT</strong><br>
+            Jump through 💵 <strong style="color:#2ecc71">Paychecks</strong> for <strong style="color:#2ecc71">+30</strong> &nbsp;|&nbsp; Hit debt = <strong style="color:#ff4444">−30</strong><br>
+            Score drops to 300 = Game Over &nbsp;|&nbsp; Reach <strong style="color:#ffd700">850</strong> to win!
         </div>
 
         <button class="btn" id="startBtn">🏃 START RUNNING!</button>
@@ -255,8 +255,9 @@
     </div>
 
     <div class="obstacle-guide">
-        <div class="obs-item"><span class="obs-icon">💸</span><span>Debt Pile<br>JUMP OVER (−30)</span></div>
-        <div class="obs-item"><span class="obs-icon">💵</span><span>Paycheck<br>FLY THROUGH (+30)</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Ground Debt<br>JUMP OVER (−30)</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Aerial Debt<br>DUCK UNDER (−30)</span></div>
+        <div class="obs-item"><span class="obs-icon">💵</span><span>Paycheck<br>JUMP THROUGH (+30)</span></div>
     </div>
 </div>
 
@@ -455,25 +456,32 @@ function drawDuck(cx, feet) {
 // Obstacles
 // ─────────────────────────────────────────────────────────────
 class Obstacle {
-    constructor(type) {
-        this.type=type; this.active=true;
-        this.hit = false;
-        this.w=82; this.h=52; this.floatY=0; // only 'debt' type remains
-        this.x = W+20;
+    constructor(type, subtype) {
+        this.type=type; this.subtype=subtype||'ground'; this.active=true;
+        this.hit=false;
+        this.w=82; this.h=52;
+        this.floatY = (this.subtype==='air') ? 48 : 0;
+        this.x=W+20;
     }
     update(dt,spd) { this.x-=spd*dt; if(this.x+this.w<-20) this.active=false; }
     top()    { return GROUND_Y-this.h-this.floatY; }
     hitbox() { const p=5; return {x:this.x+p, y:this.top()+p, w:this.w-p*2, h:this.h-p*2}; }
     draw() {
-        drawDebt(this.x,this.top(),this.w,this.h);
+        drawDebt(this.x,this.top(),this.w,this.h,this.subtype);
     }
 }
 
 
-function drawDebt(x,top,w,h) {
+function drawDebt(x,top,w,h,subtype) {
     const c=ctx,cx=x+w/2,cy=top+h/2; c.save();
     // shadow on ground
     c.fillStyle='rgba(180,0,0,0.18)'; c.beginPath(); c.ellipse(cx,GROUND_Y+4,w/2,5,0,0,Math.PI*2); c.fill();
+    // duck indicator for aerial debt
+    if(subtype==='air') {
+        c.fillStyle='rgba(255,160,0,0.85)'; c.font='bold 11px Arial'; c.textAlign='center';
+        c.fillText('▼ DUCK ▼',cx,top+h+16);
+        c.textAlign='left';
+    }
     // glowing background pill
     c.shadowColor='#ff2222'; c.shadowBlur=20;
     c.fillStyle='rgba(120,0,0,0.55)';
@@ -528,12 +536,12 @@ function drawPaycheck(x,y,w,h) {
 // Paycheck Powerup
 // ─────────────────────────────────────────────────────────────
 class Powerup {
-    constructor(debtX, debtW, debtObs) {
+    constructor(x, debtObs) {
         this.w = 72; this.h = 40;
-        this.x = debtX + debtW/2 - this.w/2;
+        this.x = x;
         this.y = GROUND_Y - 138; // mid-jump height
         this.active = true;
-        this.debt = debtObs; // linked debt obstacle
+        this.debt = debtObs || null;
     }
     update(dt,spd) {
         if(this.debt && this.debt.hit) { this.active=false; return; }
@@ -920,9 +928,22 @@ const obstacleMgr = {
         this.powerups=this.powerups.filter(p=>p.active);
     },
     _spawn() {
-        const obs=new Obstacle('debt');
-        this.list.push(obs);
-        this.powerups.push(new Powerup(obs.x,obs.w,obs));
+        const r=Math.random();
+        if(r<0.30) {
+            // ground debt only — jump over
+            this.list.push(new Obstacle('debt','ground'));
+        } else if(r<0.50) {
+            // aerial debt only — duck under
+            this.list.push(new Obstacle('debt','air'));
+        } else if(r<0.75) {
+            // solo paycheck — jump to collect
+            this.powerups.push(new Powerup(W+20, null));
+        } else {
+            // ground debt + paycheck together — jump clears debt AND collects paycheck
+            const obs=new Obstacle('debt','ground');
+            this.list.push(obs);
+            this.powerups.push(new Powerup(obs.x+obs.w/2-36, obs));
+        }
     },
     draw() {
         for(const o of this.list) o.draw();
