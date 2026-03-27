@@ -309,6 +309,9 @@ let gameState          = 'idle';
 let creditScore        = SCORE_START;
 let paychecksCollected = 0;
 let houseNotifShown    = false;
+let debtHits           = 0;
+let missedPayments     = 0;
+let hitFlashTimer      = 0;
 let speed              = 320;
 let timeElapsed = 0;
 let lastTime    = 0;
@@ -541,11 +544,13 @@ class Powerup {
         this.x = x;
         this.y = GROUND_Y - 138; // mid-jump height
         this.active = true;
+        this.missed = false;
         this.debt = debtObs || null;
     }
     update(dt,spd) {
         if(this.debt && this.debt.hit) { this.active=false; return; }
-        this.x -= spd*dt; if(this.x+this.w < -20) this.active=false;
+        this.x -= spd*dt;
+        if(this.x+this.w < -20) { this.missed=true; this.active=false; }
     }
     hitbox() { return {x:this.x, y:this.y, w:this.w, h:this.h}; }
     draw() {
@@ -925,6 +930,7 @@ const obstacleMgr = {
         for(const o of this.list) o.update(dt,spd);
         this.list=this.list.filter(o=>o.active);
         for(const p of this.powerups) p.update(dt,spd);
+        for(const p of this.powerups) { if(p.missed) missedPayments++; }
         this.powerups=this.powerups.filter(p=>p.active);
     },
     _spawn() {
@@ -966,7 +972,7 @@ function drawHUD() {
     const progress = Math.min(1,(creditScore-SCORE_START)/(SCORE_WIN-SCORE_START));
 
     ctx.fillStyle='rgba(0,0,0,0.54)';
-    rrect(ctx,8,8,W-16,54,8); ctx.fill();
+    rrect(ctx,8,8,W-16,68,8); ctx.fill();
 
     // Credit score
     ctx.fillStyle=scoreColor(creditScore);
@@ -996,6 +1002,16 @@ function drawHUD() {
     ctx.fillStyle='#aaa'; ctx.font='12px Arial'; ctx.textAlign='right';
     ctx.fillText(`💵 Paychecks: ${paychecksCollected}`,W-18,28);
     ctx.fillText(`Goal: 850`,W-18,46);
+    ctx.textAlign='left';
+
+    // Failure counters
+    const debtColor   = debtHits      >= 4 ? '#ff4444' : debtHits      >= 2 ? '#ffaa00' : '#888';
+    const missedColor = missedPayments >= 4 ? '#ff4444' : missedPayments >= 2 ? '#ffaa00' : '#888';
+    ctx.font='11px Arial';
+    ctx.fillStyle=debtColor;
+    ctx.fillText(`💥 Debt hits: ${debtHits}/5`, 18, 70);
+    ctx.fillStyle=missedColor; ctx.textAlign='right';
+    ctx.fillText(`Missed paychecks: ${missedPayments}/5 💸`, W-18, 70);
     ctx.textAlign='left';
 }
 
@@ -1192,6 +1208,7 @@ function gameLoop(ts) {
 
     const dt=Math.min((ts-lastTime)/1000, 0.05);
     lastTime=ts; timeElapsed+=dt;
+    hitFlashTimer=Math.max(0, hitFlashTimer-dt);
 
     if(gameState==='playing') {
         speed = 320 + timeElapsed*8;
@@ -1209,14 +1226,17 @@ function gameLoop(ts) {
     confetti.update(dt);
 
     if(gameState==='playing') {
+        if(missedPayments >= 5) { triggerDeath('missed'); return; }
         const ph=player.hitbox();
         for(const o of obstacleMgr.list) {
             if(!overlaps(ph,o.hitbox())) continue;
             if(!o.hit) {
                 o.hit=true; o.active=false;
+                debtHits++;
                 creditScore -= SCORE_GAIN;
+                hitFlashTimer=0.25;
                 signs.spawn(creditScore, -SCORE_GAIN);
-                if(creditScore < SCORE_FLOOR) { triggerDeath(); return; }
+                if(debtHits >= 5) { triggerDeath('debt'); return; }
             }
         }
         for(const p of obstacleMgr.powerups) {
@@ -1250,6 +1270,13 @@ function render() {
     finaleSign.draw();
     player.draw();
     confetti.draw();
+    if(hitFlashTimer > 0) {
+        ctx.save();
+        ctx.globalAlpha=Math.min(0.35, hitFlashTimer*1.4);
+        ctx.fillStyle='#ff3333';
+        ctx.fillRect(0,0,W,H);
+        ctx.restore();
+    }
     if(gameState==='playing'||gameState==='finishing') drawHUD();
 }
 
@@ -1257,7 +1284,7 @@ function render() {
 // State transitions
 // ─────────────────────────────────────────────────────────────
 function startGame() {
-    creditScore=SCORE_START; paychecksCollected=0; speed=320; timeElapsed=0;
+    creditScore=SCORE_START; paychecksCollected=0; debtHits=0; missedPayments=0; hitFlashTimer=0; speed=320; timeElapsed=0;
     player.reset(); obstacleMgr.reset(); signs.list=[]; confetti.particles=[];
     finaleSign.reset(); spendingNotif.active=false; houseNotif.active=false; houseNotifShown=false; bg.init();
     hideAll();
@@ -1265,18 +1292,20 @@ function startGame() {
     animFrameId=requestAnimationFrame(gameLoop);
 }
 
-function triggerDeath() {
+function triggerDeath(cause) {
     gameState='dead';
     cancelAnimationFrame(animFrameId);
     ctx.fillStyle='rgba(255,60,60,0.35)'; ctx.fillRect(0,0,W,H);
 
+    const causeText = cause === 'missed'
+        ? 'Missed 5 paychecks'
+        : 'Crashed into 5 debt obstacles';
     document.getElementById('gameOverDetails').innerHTML =
-        `Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
-         Final credit score: <strong style="color:${scoreColor(creditScore)}">${creditScore}</strong><br>
-         ${creditScore < SCORE_START ? '<strong style="color:#ff4444">Score dropped below 300 — crushed by debt!</strong>' : 'Crashed into an obstacle!'}`;
+        `<strong style="color:#ff7070">${causeText}</strong><br>
+         Paychecks collected: <strong style="color:#2ecc71">${paychecksCollected}</strong><br>
+         Final credit score: <strong style="color:${scoreColor(creditScore)}">${creditScore}</strong>`;
 
     document.getElementById('gameOverScreen').classList.remove('hidden');
-    // clear previous delta
     animateGauge('gaugeCanvasDeath', creditScore);
 }
 
