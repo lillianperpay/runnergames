@@ -197,15 +197,16 @@
         </div>
         <button class="btn" id="startBtn">🏃 START RUNNING!</button>
         <div class="info-text">
-            Every 500m you run = one payment received<br>
+            Jump through 💵 <strong style="color:#2ecc71">Payments</strong> to pay off your loan!<br>
+            Jump over <strong style="color:#ff4444">ground DEBT</strong> &nbsp;|&nbsp; Duck under <strong style="color:#ff4444">aerial DEBT</strong><br>
             Complete all payments to win!
         </div>
     </div>
 
     <div class="obstacle-guide">
-        <div class="obs-item"><span class="obs-icon">🗑️</span><span>Trash Can<br>JUMP</span></div>
-        <div class="obs-item"><span class="obs-icon">🏈</span><span>Football<br>DUCK</span></div>
-        <div class="obs-item"><span class="obs-icon">🚌</span><span>SEPTA Bus<br>JUMP</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Ground Debt<br>JUMP OVER</span></div>
+        <div class="obs-item"><span class="obs-icon">💸</span><span>Aerial Debt<br>DUCK UNDER</span></div>
+        <div class="obs-item"><span class="obs-icon">💵</span><span>Payment<br>JUMP THROUGH</span></div>
     </div>
 </div>
 
@@ -242,18 +243,14 @@ const PLAYER_X = 130;   // player's fixed x
 let loanAmount    = 400;
 let paymentAmount = 20;
 let numPayments   = 20;
-let totalMeters   = 10000; // numPayments * 500
 
 // Runtime state
 let gameState     = 'idle'; // idle | playing | dead | win
-let distanceM     = 0;
 let paymentsMade  = 0;
 let speed         = 320;    // px/s base visual speed
 let timeElapsed   = 0;
 let lastTime      = 0;
 let animFrameId   = null;
-
-const METERS_PER_SECOND = 25; // game world speed: 500m / 20s
 
 // ─────────────────────────────────────────────────────────────
 // Player
@@ -480,121 +477,93 @@ function drawDuck(cx, feet) {
 // Obstacles
 // ─────────────────────────────────────────────────────────────
 class Obstacle {
-    constructor(type) {
-        this.type   = type;
-        this.active = true;
-        switch (type) {
-            case 'trashcan': this.w = 34; this.h = 56; this.floatY = 0;   break;
-            case 'football': this.w = 38; this.h = 26; this.floatY = 48;  break;
-            case 'bus':      this.w = 95; this.h = 72; this.floatY = 0;   break;
-        }
+    constructor(type, subtype) {
+        this.type = type; this.subtype = subtype || 'ground'; this.active = true;
+        this.hit = false;
+        this.w = 82; this.h = 52;
+        this.floatY = (this.subtype === 'air') ? 48 : 0;
         this.x = W + 20;
     }
+    update(dt, spd) { this.x -= spd * dt; if (this.x + this.w < -20) this.active = false; }
+    top()    { return GROUND_Y - this.h - this.floatY; }
+    hitbox() { const p = 5; return { x: this.x + p, y: this.top() + p, w: this.w - p*2, h: this.h - p*2 }; }
+    draw()   { drawDebt(this.x, this.top(), this.w, this.h, this.subtype); }
+}
 
+function drawDebt(x, top, w, h, subtype) {
+    const c = ctx, cx = x + w/2, cy = top + h/2; c.save();
+    c.fillStyle = 'rgba(180,0,0,0.18)'; c.beginPath(); c.ellipse(cx, GROUND_Y+4, w/2, 5, 0, 0, Math.PI*2); c.fill();
+    if (subtype === 'air') {
+        c.fillStyle = 'rgba(255,160,0,0.85)'; c.font = 'bold 11px Arial'; c.textAlign = 'center';
+        c.fillText('▼ DUCK ▼', cx, top + h + 16);
+        c.textAlign = 'left';
+    }
+    c.shadowColor = '#ff2222'; c.shadowBlur = 20;
+    c.fillStyle = 'rgba(120,0,0,0.55)';
+    rrect(c, x, top, w, h, 8); c.fill();
+    c.strokeStyle = '#ff3333'; c.lineWidth = 2.5;
+    rrect(c, x, top, w, h, 8); c.stroke();
+    c.shadowBlur = 0;
+    c.strokeStyle = 'rgba(255,80,80,0.35)'; c.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+        c.beginPath(); c.moveTo(x+6, top + i*h/4); c.lineTo(x+w-6, top + i*h/4); c.stroke();
+    }
+    c.shadowColor = '#ff0000'; c.shadowBlur = 14;
+    c.fillStyle = '#ff2222'; c.font = 'bold 26px "Arial Black",Arial'; c.textAlign = 'center';
+    c.fillText('DEBT', cx, cy + 9);
+    c.shadowBlur = 0;
+    c.restore();
+}
+
+function drawPayment(x, y, w, h, amount) {
+    const c = ctx, cx = x + w/2; c.save();
+    c.shadowColor = '#00e676'; c.shadowBlur = 18;
+    c.fillStyle = '#e8f5e9';
+    rrect(c, x, y, w, h, 5); c.fill();
+    c.strokeStyle = '#2ecc71'; c.lineWidth = 2.5;
+    rrect(c, x, y, w, h, 5); c.stroke();
+    c.shadowBlur = 0;
+    c.fillStyle = '#2ecc71';
+    c.fillRect(x+2, y+2, w-4, 12);
+    rrect(c, x, y, w, 14, 5); c.fill();
+    c.fillStyle = '#fff'; c.font = 'bold 8px Arial'; c.textAlign = 'center';
+    c.fillText('PAYMENT', cx, y + 11);
+    c.fillStyle = '#1b5e20'; c.font = 'bold 15px "Arial Black",Arial';
+    c.fillText(`-$${amount}`, cx, y + h - 8);
+    c.strokeStyle = 'rgba(46,204,113,0.4)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x+6, y+20); c.lineTo(x+w-6, y+20); c.stroke();
+    c.beginPath(); c.moveTo(x+6, y+27); c.lineTo(x+w*0.6, y+27); c.stroke();
+    c.textAlign = 'left';
+    c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Payment Powerup
+// ─────────────────────────────────────────────────────────────
+class Powerup {
+    constructor(x, debtObs) {
+        this.w = 72; this.h = 40;
+        this.x = x;
+        this.y = GROUND_Y - 138;
+        this.active = true;
+        this.debt = debtObs || null;
+    }
     update(dt, spd) {
-        this.x -= spd * dt;
-        if (this.x + this.w < -20) this.active = false;
+        if (this.debt && this.debt.hit) { this.active = false; return; }
+        this.x -= spd * dt; if (this.x + this.w < -20) this.active = false;
     }
-
-    // top-left corner of obstacle bounding box
-    top()  { return GROUND_Y - this.h - this.floatY; }
-
-    hitbox() {
-        const pad = 5;
-        return { x: this.x + pad, y: this.top() + pad, w: this.w - pad*2, h: this.h - pad*2 };
-    }
-
+    hitbox() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
     draw() {
-        switch (this.type) {
-            case 'trashcan': drawTrashCan(this.x, GROUND_Y, this.w, this.h); break;
-            case 'football': drawFootball(this.x, this.top(), this.w, this.h); break;
-            case 'bus':      drawBus     (this.x, GROUND_Y, this.w, this.h); break;
-        }
+        if (!this.active) return;
+        drawPayment(this.x, this.y, this.w, this.h, paymentAmount);
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+        ctx.save();
+        ctx.strokeStyle = `rgba(46,204,113,${0.3 + 0.3 * pulse})`;
+        ctx.lineWidth = 2 + pulse * 3;
+        rrect(ctx, this.x - 4, this.y - 4, this.w + 8, this.h + 8, 9);
+        ctx.stroke();
+        ctx.restore();
     }
-}
-
-function drawTrashCan(x, gnd, w, h) {
-    const c = ctx, top = gnd - h, cx = x + w/2;
-    c.save();
-    // body
-    c.fillStyle = '#546e7a';
-    c.fillRect(x + 2, top + 12, w - 4, h - 12);
-    // vertical lines
-    c.strokeStyle = '#455a64'; c.lineWidth = 1.5;
-    for (let i = 1; i < 3; i++) {
-        const ly = top + 12 + (h - 12) * i/3;
-        c.beginPath(); c.moveTo(x+2, ly); c.lineTo(x+w-2, ly); c.stroke();
-    }
-    // lid
-    c.fillStyle = '#37474f';
-    c.fillRect(x - 3, top, w + 6, 14);
-    // handle arc
-    c.strokeStyle = '#263238'; c.lineWidth = 3;
-    c.beginPath(); c.arc(cx, top, 9, Math.PI, 0); c.stroke();
-    // wheels
-    c.fillStyle = '#1a1a1a';
-    [[x+7, gnd+3],[x+w-7, gnd+3]].forEach(([wx,wy]) => {
-        c.beginPath(); c.arc(wx, wy, 5, 0, Math.PI*2); c.fill();
-    });
-    c.restore();
-}
-
-function drawFootball(x, top, w, h) {
-    const c = ctx, cx = x + w/2, cy = top + h/2;
-    c.save();
-    // shadow
-    c.fillStyle = 'rgba(0,0,0,0.25)';
-    c.beginPath(); c.ellipse(cx, GROUND_Y + 4, w/2, 5, 0, 0, Math.PI*2); c.fill();
-    // ball
-    c.fillStyle = '#6d4c41';
-    c.beginPath(); c.ellipse(cx, cy, w/2, h/2, 0.25, 0, Math.PI*2); c.fill();
-    // seam
-    c.strokeStyle = '#4e342e'; c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(x + 5, cy);
-    c.bezierCurveTo(cx, cy - h/2 + 2, cx, cy + h/2 - 2, x + w - 5, cy);
-    c.stroke();
-    // laces
-    c.strokeStyle = 'white'; c.lineWidth = 2;
-    c.beginPath(); c.moveTo(cx - 7, cy - 5); c.lineTo(cx + 7, cy - 5); c.stroke();
-    for (let i = -5; i <= 5; i += 5) {
-        c.beginPath(); c.moveTo(cx+i, cy-8); c.lineTo(cx+i, cy-2); c.stroke();
-    }
-    // motion lines
-    c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) {
-        c.beginPath(); c.moveTo(x-8-i*8, cy-5+i*5); c.lineTo(x-1-i*8, cy-3+i*5); c.stroke();
-    }
-    c.restore();
-}
-
-function drawBus(x, gnd, w, h) {
-    const c = ctx, top = gnd - h;
-    c.save();
-    // body
-    c.fillStyle = '#1565c0';
-    c.fillRect(x, top, w, h - 12);
-    // front face
-    c.fillStyle = '#0d47a1';
-    c.fillRect(x + w - 14, top + 6, 14, h - 18);
-    // windows
-    c.fillStyle = '#cfe8ff';
-    for (let i = 0; i < 3; i++) c.fillRect(x + 6 + i*24, top+10, 18, 18);
-    c.fillRect(x + w - 11, top+10, 9, 18);
-    // SEPTA text
-    c.fillStyle = 'white'; c.font = 'bold 9px Arial';
-    c.fillText('SEPTA', x + 8, top + h - 20);
-    // orange stripe
-    c.fillStyle = '#ff8f00';
-    c.fillRect(x, top + h - 26, w - 14, 4);
-    // wheels
-    [[x+16, gnd+3],[x+w-18, gnd+3]].forEach(([wx,wy]) => {
-        c.fillStyle = '#1a1a1a';
-        c.beginPath(); c.arc(wx, wy, 11, 0, Math.PI*2); c.fill();
-        c.fillStyle = '#bbb';
-        c.beginPath(); c.arc(wx, wy,  5, 0, Math.PI*2); c.fill();
-    });
-    c.restore();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1093,11 +1062,13 @@ const finaleSign = {
 // Obstacle Manager
 // ─────────────────────────────────────────────────────────────
 const obstacleMgr = {
-    list:        [],
-    nextSpawnT:  0,
+    list:       [],
+    powerups:   [],
+    nextSpawnT: 0,
 
     reset() {
         this.list = [];
+        this.powerups = [];
         this.nextSpawnT = 1.8;
     },
 
@@ -1105,19 +1076,33 @@ const obstacleMgr = {
         if (t >= this.nextSpawnT) {
             this._spawn();
             const gap = Math.max(1.4, 3.2 - t * 0.012);
-            this.nextSpawnT = t + gap * (0.65 + Math.random()*0.7);
+            this.nextSpawnT = t + gap * (0.65 + Math.random() * 0.7);
         }
         for (const o of this.list) o.update(dt, spd);
         this.list = this.list.filter(o => o.active);
+        for (const p of this.powerups) p.update(dt, spd);
+        this.powerups = this.powerups.filter(p => p.active);
     },
 
     _spawn() {
         const r = Math.random();
-        const type = r < 0.38 ? 'trashcan' : r < 0.72 ? 'football' : 'bus';
-        this.list.push(new Obstacle(type));
+        if (r < 0.30) {
+            this.list.push(new Obstacle('debt', 'ground'));
+        } else if (r < 0.50) {
+            this.list.push(new Obstacle('debt', 'air'));
+        } else if (r < 0.75) {
+            this.powerups.push(new Powerup(W + 20, null));
+        } else {
+            const obs = new Obstacle('debt', 'ground');
+            this.list.push(obs);
+            this.powerups.push(new Powerup(obs.x + obs.w/2 - 36, obs));
+        }
     },
 
-    draw() { for (const o of this.list) o.draw(); }
+    draw() {
+        for (const o of this.list) o.draw();
+        for (const p of this.powerups) p.draw();
+    }
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -1125,33 +1110,31 @@ const obstacleMgr = {
 // ─────────────────────────────────────────────────────────────
 function drawHUD() {
     const remaining = Math.max(0, loanAmount - paymentsMade * paymentAmount);
-    const progress  = Math.min(1, distanceM / totalMeters);
-    const nextAt    = (paymentsMade + 1) * 500;
-    const toNext    = Math.max(0, nextAt - distanceM);
+    const progress  = Math.min(1, paymentsMade / numPayments);
 
-    // background panel
     ctx.fillStyle = 'rgba(0,0,0,0.52)';
     rrect(ctx, 8, 8, W-16, 52, 8); ctx.fill();
 
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 13px Arial';
-    ctx.fillText(`💰 Balance: $${remaining.toFixed(0)}`, 18, 28);
-    ctx.fillText(`✅ ${paymentsMade}/${numPayments} payments`, 18, 48);
+    ctx.fillStyle = '#3A80FF';
+    ctx.font = 'bold 22px "Arial Black",Arial';
+    ctx.fillText(`${paymentsMade}/${numPayments}`, 18, 36);
+    ctx.fillStyle = '#888'; ctx.font = '11px Arial';
+    ctx.fillText('PAYMENTS MADE', 18, 52);
 
-    // progress bar
-    const bx = 200, bw = W-400, by = 20, bh = 12;
-    ctx.fillStyle = '#333'; rrect(ctx, bx, by, bw, bh, 5); ctx.fill();
+    const bx = 180, bw = W-360, by = 18, bh = 14;
+    ctx.fillStyle = '#222'; rrect(ctx, bx, by, bw, bh, 6); ctx.fill();
     if (progress > 0) {
         ctx.fillStyle = '#3A80FF';
-        rrect(ctx, bx, by, bw*progress, bh, 5); ctx.fill();
+        rrect(ctx, bx, by, bw * progress, bh, 6); ctx.fill();
     }
-    ctx.fillStyle = '#aaa'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(`${Math.floor(distanceM).toLocaleString()} / ${totalMeters.toLocaleString()} m`, bx+bw/2, by+bh+14);
+    ctx.fillStyle = '#555'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('0', bx, by + bh + 12);
+    ctx.fillText(`${numPayments}`, bx + bw, by + bh + 12);
     ctx.textAlign = 'left';
 
     ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = 'right';
-    ctx.fillText(`Next payment in: ${Math.ceil(toNext)}m`, W-18, 28);
-    ctx.fillText(`($${paymentAmount})`, W-18, 46);
+    ctx.fillText(`💰 Balance: $${remaining.toFixed(0)}`, W-18, 28);
+    ctx.fillText(`$${paymentAmount}/payment`, W-18, 46);
     ctx.textAlign = 'left';
 }
 
@@ -1248,53 +1231,36 @@ function gameLoop(ts) {
     lastTime = ts;
     timeElapsed += dt;
 
-    // speed: ramp up while playing, decelerate to a slow trot during finishing
     if (gameState === 'playing') {
         speed = 320 + timeElapsed * 8;
     } else {
         speed = Math.max(90, speed - 280 * dt);
-    }
-
-    // advance distance only while playing
-    if (gameState === 'playing') {
-        const mps = METERS_PER_SECOND * (speed / 320);
-        distanceM += mps * dt;
-
-        // payment milestones
-        const expected = Math.floor(distanceM / 500);
-        if (expected > paymentsMade && paymentsMade < numPayments) {
-            paymentsMade = Math.min(expected, numPayments);
-            const remaining = loanAmount - paymentsMade * paymentAmount;
-            signs.spawn(`-$${paymentAmount} payment!`, `Balance: $${Math.max(0,remaining)}`);
-        }
-
-        // transition to finishing when all meters are run
-        if (distanceM >= totalMeters) {
-            gameState = 'finishing';
-            distanceM = totalMeters;
-            paymentsMade = numPayments;
-            obstacleMgr.list = []; // clear all remaining obstacles
-            finaleSign.spawn();
-        }
-    }
-
-    // finishing: drive the finale billboard; go to win when done
-    if (gameState === 'finishing') {
         if (finaleSign.update(dt, speed)) { triggerWin(); return; }
     }
 
-    // update world
     bg.update(dt, speed);
     player.update(dt);
     if (gameState === 'playing') obstacleMgr.update(dt, timeElapsed, speed);
     signs.update(dt, speed);
     confetti.update(dt);
 
-    // collision check (playing only)
     if (gameState === 'playing') {
         const ph = player.hitbox();
         for (const o of obstacleMgr.list) {
             if (overlaps(ph, o.hitbox())) { triggerDeath(); return; }
+        }
+        for (const p of obstacleMgr.powerups) {
+            if (!p.active || (p.debt && p.debt.hit) || !overlaps(ph, p.hitbox())) continue;
+            p.active = false;
+            paymentsMade++;
+            const remaining = Math.max(0, loanAmount - paymentsMade * paymentAmount);
+            signs.spawn(`-$${paymentAmount} payment!`, `Balance: $${remaining.toFixed(0)}`);
+            if (paymentsMade >= numPayments) {
+                gameState = 'finishing';
+                obstacleMgr.list = []; obstacleMgr.powerups = [];
+                finaleSign.spawn();
+                break;
+            }
         }
     }
 
@@ -1325,9 +1291,8 @@ function startGame() {
     loanAmount    = la;
     paymentAmount = pa;
     numPayments   = Math.ceil(la / pa);
-    totalMeters   = numPayments * 500;
 
-    distanceM = 0; paymentsMade = 0; speed = 320; timeElapsed = 0;
+    paymentsMade = 0; speed = 320; timeElapsed = 0;
     player.reset(); obstacleMgr.reset(); signs.list = []; confetti.particles = [];
     finaleSign.reset();
     bg.init();
@@ -1347,24 +1312,22 @@ function triggerDeath() {
     ctx.fillRect(0,0,W,H);
 
     const paid = paymentsMade * paymentAmount;
-    const rem  = loanAmount - paid;
+    const rem  = Math.max(0, loanAmount - paid);
     document.getElementById('gameOverDetails').innerHTML =
         `You made <strong>${paymentsMade}</strong> of ${numPayments} payments<br>
          Amount paid: <strong>$${paid.toLocaleString()}</strong> of $${loanAmount.toLocaleString()}<br>
-         Remaining balance: <strong>$${rem.toLocaleString()}</strong><br>
-         Distance covered: <strong>${Math.floor(distanceM).toLocaleString()}m</strong>`;
+         Remaining balance: <strong>$${rem.toLocaleString()}</strong>`;
     document.getElementById('gameOverScreen').classList.remove('hidden');
 }
 
 function triggerWin() {
     gameState = 'win';
     cancelAnimationFrame(animFrameId);
-    distanceM = totalMeters; paymentsMade = numPayments;
+    paymentsMade = numPayments;
     render();
 
     document.getElementById('winDetails').innerHTML =
-        `🐕 You ran <strong>${totalMeters.toLocaleString()}m</strong> through Philadelphia!<br>
-         Made all <strong>${numPayments}</strong> payments of $${paymentAmount}<br>
+        `Made all <strong>${numPayments}</strong> payments of $${paymentAmount}<br>
          Total paid off: <strong>$${loanAmount.toLocaleString()}</strong><br><br>
          <em style="color:#00e676">Your Perpay loan is fully paid off!</em>`;
 
