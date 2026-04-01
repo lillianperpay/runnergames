@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>PerPay Credit Runner</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -213,6 +213,14 @@
 
         .gauge-delta .delta-pos { color: #2ecc71; font-weight: bold; }
         .gauge-delta .delta-neg { color: #aaa; }
+
+        /* ── Mobile / landscape support ── */
+        html, body { touch-action: none; }
+        body { overflow: hidden; height: 100vh; }
+        .card { min-width: min(320px, 90vw); }
+        @media (max-height: 500px) {
+            #title, #hint { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -294,6 +302,14 @@ const ctx    = canvas.getContext('2d');
 const W = canvas.width;   // 820
 const bgImg = new Image(); bgImg.src = 'perpay_arcade_background.jpg';
 const H = canvas.height;  // 420
+
+function fitCanvas() {
+    const scale = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+    canvas.style.width  = Math.floor(W * scale) + 'px';
+    canvas.style.height = Math.floor(H * scale) + 'px';
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
 
 const GROUND_Y = 340;
 const PLAYER_X = 130;
@@ -1039,8 +1055,9 @@ document.addEventListener('keyup',e=>{
 });
 canvas.addEventListener('touchstart',e=>{
     e.preventDefault();
-    const ty=e.touches[0].clientY-canvas.getBoundingClientRect().top;
-    if(ty<H/2) player.jump();
+    const rect=canvas.getBoundingClientRect();
+    const ty=e.touches[0].clientY-rect.top;
+    if(ty<rect.height/2) player.jump();
     else{ keys.down=true; player.setDuck(true); }
 },{passive:false});
 canvas.addEventListener('touchend',e=>{
